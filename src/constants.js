@@ -8,4 +8,7 @@ export const STATE = Object.freeze({
   PLAYING: "JUGANDO",
   PAUSED: "PAUSA",
   GAME_OVER: "GAME OVER",
+  SELECT_FIGHTER: "SELECCIÓN",
+  LEVEL_INTRO: "INTRO NIVEL",
+  VICTORY: "VICTORIA",
 });

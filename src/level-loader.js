@@ -29,6 +29,7 @@ export function loadLevel(levelData, fighterId) {
     physicsSolids: [...levelData.arena.solids, combat.enemy.bodyBox],
     elapsedSeconds: 0,
     status: "en curso",
+    lastCombatEvents: Object.freeze([]),
     tutorial: new TutorialController(levelData.tutorialSteps ?? []),
   };
 }
@@ -39,7 +40,8 @@ export function updateLevel(level, actions, dt) {
   level.physics.update(level.player, actions, dt, level.physicsSolids);
   level.tutorial.update(actions, level.player, level.enemy);
   if (level.tutorial.completed) level.enemy.setCombatReady?.(true);
-  level.combat.update(dt, actions);
+  const events = level.combat.update(dt, actions);
+  level.lastCombatEvents = events;
   if (level.tutorial.completed) level.elapsedSeconds += dt;
   if (level.elapsedSeconds >= level.data.timeLimitSec && level.combat.outcome === COMBAT_OUTCOME.IN_PROGRESS) {
     level.combat.finishForTimeout();

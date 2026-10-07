@@ -9,6 +9,7 @@ import { GameLoop } from "./game-loop.js";
 import { InputController } from "./input-controller.js";
 import { StateMachine } from "./state-machine.js";
 import { createStates } from "./states.js";
+import { VALID_STATE_TRANSITIONS } from "./campaign-transitions.js";
 
 const FPS_POSITION_X = 18;
 const FPS_POSITION_Y = 26;
@@ -24,18 +25,13 @@ if (!context) {
 } else {
   canvas.width = LOGICAL_WIDTH;
   canvas.height = LOGICAL_HEIGHT;
+  canvas.setAttribute("aria-label", "Chilos Fighters. Menú principal, selección de estudiante y Nivel 1");
 
   const clock = new GameClock();
   const input = new InputController();
   let stateMachine;
-  const states = createStates(clock, input, () => stateMachine.transition(STATE.GAME_OVER));
-  const transitions = new Map([
-    [STATE.MENU, new Set([STATE.PLAYING])],
-    [STATE.PLAYING, new Set([STATE.PAUSED, STATE.GAME_OVER])],
-    [STATE.PAUSED, new Set([STATE.PLAYING, STATE.MENU])],
-    [STATE.GAME_OVER, new Set([STATE.MENU])],
-  ]);
-  stateMachine = new StateMachine(states, transitions, STATE.MENU);
+  const states = createStates(clock, input, (nextState) => stateMachine.transition(nextState));
+  stateMachine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
 
   const render = (framesPerSecond, alpha) => {
     stateMachine.render(context, stateMachine.snapshot, alpha);
@@ -50,7 +46,7 @@ if (!context) {
     (dt) => stateMachine.update(dt),
     (framesPerSecond, alpha) => render(framesPerSecond, alpha),
   );
-  input.connect({ stateMachine, clock, loop });
+  input.connect({ stateMachine, clock, loop, commands: states.commands });
 
   const resize = () => fitCanvas(canvas, context);
   window.addEventListener("resize", resize);

@@ -30,6 +30,7 @@ export class InputController {
   #handleKeyUp;
   #handleVisibilityChange;
   #handleBlur;
+  #commands = {};
 
   constructor(bindings = DEFAULT_ACTION_BINDINGS) {
     this.#bindings = new Map(
@@ -41,10 +42,11 @@ export class InputController {
     this.#handleBlur = this.handleBlur.bind(this);
   }
 
-  connect({ stateMachine, clock, loop }) {
+  connect({ stateMachine, clock, loop, commands = {} }) {
     this.#stateMachine = stateMachine;
     this.#clock = clock;
     this.#loop = loop;
+    this.#commands = commands;
   }
 
   bindAction(action, codes) {
@@ -149,7 +151,7 @@ export class InputController {
     if (actions.length === 0) return;
 
     const currentState = this.#stateMachine.currentName;
-    if (SCROLL_KEYS.has(code) && currentState === STATE.PLAYING) {
+    if (SCROLL_KEYS.has(code) && currentState !== STATE.PLAYING) {
       event.preventDefault();
     }
     if (this.#handleStateCommand(event, actions, currentState)) {
@@ -221,6 +223,40 @@ export class InputController {
   }
 
   #handleStateCommand(event, actions, currentState) {
+    const command = (action) => this.#commands.handle?.(action, currentState, (next, resetClock = false) => this.#transition(next, resetClock));
+    if (currentState === STATE.MENU && actionIncludes(actions, ACTION.CONFIRM)) {
+      event.preventDefault(); command(ACTION.CONFIRM); return true;
+    }
+    if (currentState === STATE.SELECT_FIGHTER) {
+      if (actionIncludes(actions, ACTION.SELECT_PREVIOUS)) { event.preventDefault(); command(ACTION.SELECT_PREVIOUS); return true; }
+      if (actionIncludes(actions, ACTION.SELECT_NEXT)) { event.preventDefault(); command(ACTION.SELECT_NEXT); return true; }
+      if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
+      if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
+    }
+    if (currentState === STATE.LEVEL_INTRO) {
+      if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
+      if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
+    }
+    if (currentState === STATE.PAUSED) {
+      if (actionIncludes(actions, ACTION.RESTART_LEVEL)) { event.preventDefault(); command(ACTION.RESTART_LEVEL); return true; }
+      if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
+      if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
+      if (actionIncludes(actions, ACTION.PAUSE_TOGGLE)) {
+        event.preventDefault();
+        if (this.#commands.cancelAbandon?.()) return true;
+        this.#transition(STATE.PLAYING);
+        return true;
+      }
+    }
+    if (currentState === STATE.GAME_OVER) {
+      if (actionIncludes(actions, ACTION.RESTART_LEVEL)) { event.preventDefault(); command(ACTION.RESTART_LEVEL); return true; }
+      if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
+      if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
+    }
+    if (currentState === STATE.VICTORY) {
+      if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
+      if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
+    }
     if (
       actionIncludes(actions, ACTION.RESTART_LEVEL) &&
       (currentState === STATE.PAUSED || currentState === STATE.GAME_OVER)
@@ -245,7 +281,7 @@ export class InputController {
     }
     if (actionIncludes(actions, ACTION.GAME_OVER_TEST)) {
       event.preventDefault();
-      this.#transition(STATE.GAME_OVER);
+      if (this.#commands.handle?.(ACTION.GAME_OVER_TEST, currentState) !== true) this.#transition(STATE.GAME_OVER);
       return true;
     }
     if (actionIncludes(actions, ACTION.MENU_TEST)) {

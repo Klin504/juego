@@ -14,6 +14,9 @@ import { loadLevel, updateLevel } from "../src/level-loader.js";
 import { CHILO_DATA, CHILO_JUMP_ATTACK } from "../src/boss-data.js";
 import { Chilo } from "../src/chilo.js";
 import { EnemyCombatant } from "../src/enemy-combatant.js";
+import { CampaignController } from "../src/campaign-controller.js";
+import { VALID_STATE_TRANSITIONS } from "../src/campaign-transitions.js";
+import { CAMPAIGN_RECORD_STORAGE_KEY, readCampaignRecord, saveCampaignRecord } from "../src/campaign-storage.js";
 
 const output = document.querySelector("#results");
 const summary = document.querySelector("#summary");
@@ -67,6 +70,11 @@ function phaseFixture() {
       Object.freeze({ interAttackDelaySec: 99, attacks: Object.freeze([phaseAttack("fixture-phase-two")]) }),
     ]),
   });
+}
+
+function memoryStorage() {
+  const values = new Map();
+  return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)) };
 }
 
 run("El cargador construye Nivel 1 desde datos con estado limpio", () => {
@@ -371,9 +379,12 @@ run("KO simultáneo da victoria; derrota transita a GAME OVER; derrota del enemi
   };
   let machine;
   const states = createStates(clock, fakeInput, () => machine.transition(STATE.GAME_OVER));
-  const allowed = new Map([[STATE.MENU, new Set([STATE.PLAYING])], [STATE.PLAYING, new Set([STATE.PAUSED, STATE.GAME_OVER])], [STATE.PAUSED, new Set([STATE.PLAYING, STATE.MENU])], [STATE.GAME_OVER, new Set([STATE.MENU])]]);
+  const allowed = VALID_STATE_TRANSITIONS;
   machine = new StateMachine(states, allowed, STATE.MENU);
-  machine.transition(STATE.PLAYING);
+  const transition = (next) => machine.transition(next);
+  states.commands.handle("confirm", STATE.MENU, transition);
+  states.commands.handle("confirm", STATE.SELECT_FIGHTER, transition);
+  states.commands.handle("confirm", STATE.LEVEL_INTRO, transition);
   for (let step = 0; step < 12000 && machine.currentName === STATE.PLAYING; step += 1) machine.update(dt);
   assert(machine.currentName === STATE.GAME_OVER, `la máquina quedó en ${machine.currentName} tras 200 s simulados`);
 
@@ -438,12 +449,7 @@ run("Pérdida de foco limpia acciones held y pressed", () => {
 });
 
 run("T reinicia desde pausa y GAME OVER con transiciones permitidas", () => {
-  const allowed = new Map([
-    [STATE.MENU, new Set([STATE.PLAYING])],
-    [STATE.PLAYING, new Set([STATE.PAUSED, STATE.GAME_OVER])],
-    [STATE.PAUSED, new Set([STATE.PLAYING, STATE.MENU])],
-    [STATE.GAME_OVER, new Set([STATE.MENU])],
-  ]);
+  const allowed = VALID_STATE_TRANSITIONS;
   const machine = {
     currentName: STATE.PAUSED,
     transitions: [],
@@ -455,14 +461,23 @@ run("T reinicia desde pausa y GAME OVER con transiciones permitidas", () => {
     },
   };
   const input = new InputController();
-  input.connect({ stateMachine: machine, clock: { reset() {} }, loop: { resetTiming() {} } });
+  input.connect({ stateMachine: machine, clock: { reset() {} }, loop: { resetTiming() {} }, commands: {
+    handle(action, currentState, transition) {
+      if (action !== "restartLevel") return false;
+      transition(STATE.MENU);
+      transition(STATE.SELECT_FIGHTER);
+      transition(STATE.LEVEL_INTRO);
+      transition(STATE.PLAYING, true);
+      return true;
+    },
+  } });
   input.mount();
   window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyT", bubbles: true }));
-  assert(machine.currentName === STATE.PLAYING && machine.transitions[0][0] === STATE.PAUSED && machine.transitions[1][0] === STATE.MENU, "T no reinició desde pausa por las transiciones existentes");
+  assert(machine.currentName === STATE.PLAYING && machine.transitions[0][0] === STATE.PAUSED && machine.transitions[1][1] === STATE.SELECT_FIGHTER, "T no reinició desde pausa por las transiciones de campaña");
   window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyT", bubbles: true }));
   machine.currentName = STATE.GAME_OVER;
   window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyT", bubbles: true }));
-  assert(machine.currentName === STATE.PLAYING && machine.transitions.slice(-2)[0][0] === STATE.GAME_OVER, "T no reinició desde GAME OVER");
+  assert(machine.currentName === STATE.PLAYING && machine.transitions.slice(-4)[0][0] === STATE.GAME_OVER, "T no reinició desde GAME OVER");
   input.unmount();
 });
 
@@ -500,6 +515,165 @@ run("Física 2.2: salto cercano a 150 px y no atraviesa suelo, pared, plataforma
   for (let step = 0; step < 120; step += 1) physics.update(dummyPlayer, actions({ moveX: 1 }), dt, [...TEST_ROOM_SOLIDS, dummy]);
   assert(dummyPlayer.bodyBox.x + dummyPlayer.bodyBox.width <= dummy.x + 1e-6, "atravesó la caja sólida del muñeco");
   assert(LOGICAL_HEIGHT === 540, "resolución lógica esperada cambió");
+});
+
+run("Transiciones de campaña: rutas válidas y transición inválida rechazada", () => {
+  for (const state of [STATE.MENU, STATE.SELECT_FIGHTER, STATE.LEVEL_INTRO, STATE.PLAYING, STATE.PAUSED, STATE.GAME_OVER, STATE.VICTORY]) {
+    assert(VALID_STATE_TRANSITIONS.has(state), `falta transición para ${state}`);
+  }
+  assert(VALID_STATE_TRANSITIONS.get(STATE.PLAYING).has(STATE.VICTORY), "JUGANDO no puede pasar a VICTORIA");
+  assert(VALID_STATE_TRANSITIONS.get(STATE.VICTORY).has(STATE.LEVEL_INTRO), "VICTORIA no puede avanzar al siguiente nivel");
+  const stateStub = (name) => ({ enter() {}, exit() {}, update() {}, render() {} });
+  const states = new Map(Object.values(STATE).map((name) => [name, stateStub(name)]));
+  const machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.PLAYING);
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (message) => warnings.push(message);
+  try {
+    assert(machine.transition(STATE.VICTORY), "victoria válida fue rechazada");
+    assert(!machine.transition(STATE.PAUSED), "transición inválida se aceptó desde VICTORIA");
+  } finally { console.warn = originalWarn; }
+  assert(warnings.length === 1 && machine.currentName === STATE.VICTORY, "no rechazó transición inválida sin mutar estado");
+});
+
+run("La campaña conserva selección y aplica intentos, puntos, marcas y reinicio limpio", () => {
+  const campaign = new CampaignController();
+  assert(campaign.attemptsRemaining === 3 && campaign.marks.length === 4, "inicialización distinta al contrato");
+  assert(campaign.selectFighter("diego") && campaign.selectedFighterId === "diego", "no guardó estudiante elegido");
+  campaign.attemptScore = 37;
+  assert(campaign.settleDefeat() && campaign.attemptsRemaining === 2 && campaign.attemptScore === 0, "derrota no consumió un intento o descartó puntos");
+  assert(campaign.retryAfterDefeat() && campaign.attemptsRemaining === 2 && campaign.selectedFighterId === "diego", "reintento consumió dos intentos o cambió luchador");
+  assert(campaign.settleVictory({ playerHp: 80, remainingSeconds: 123.9, attemptScore: 30 }), "victoria no se consolidó");
+  assert(campaign.snapshot.campaignScore === 1053, `fórmula de victoria incorrecta: ${campaign.snapshot.campaignScore}`);
+  assert(campaign.marks[0] && campaign.marks.filter(Boolean).length === 1, "marca no se registró una vez");
+  assert(!campaign.settleVictory({ playerHp: 80, remainingSeconds: 123, attemptScore: 30 }) && campaign.campaignScore === 1053, "duplicó consolidación de victoria");
+  assert(!campaign.advance() && campaign.terminal === "VICTORIA", "no cerró campaña provisional sin siguiente nivel");
+  campaign.reset();
+  assert(campaign.snapshot.selectedFighterId === null && campaign.levelIndex === 0 && campaign.attemptsRemaining === 3 && campaign.campaignScore === 0 && campaign.marks.every((mark) => !mark), "reinicio de campaña dejó estado residual");
+});
+
+run("Reiniciar nivel desde pausa consume un intento y el tercero lleva a GAME OVER", () => {
+  const campaign = new CampaignController();
+  campaign.selectFighter("alma");
+  assert(campaign.restartLevel() && campaign.attemptsRemaining === 2, "primer reinicio no consumió intento");
+  assert(campaign.restartLevel() && campaign.attemptsRemaining === 1, "segundo reinicio no consumió intento");
+  assert(!campaign.restartLevel() && campaign.attemptsRemaining === 0 && campaign.terminal === "GAME OVER", "tercer reinicio no terminó en GAME OVER");
+  assert(!campaign.restartLevel(), "permitió reiniciar sin intentos");
+});
+
+run("La pausa confirma o cancela reinicio/abandono antes de mutar la campaña", () => {
+  const clock = new GameClock();
+  const input = { clear() {}, snapshotForStep: () => actions() };
+  let machine;
+  const states = createStates(clock, input, (next) => machine.transition(next), memoryStorage());
+  machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+  const transition = (next) => machine.transition(next);
+  states.commands.handle("confirm", STATE.MENU, transition);
+  states.commands.handle("confirm", STATE.SELECT_FIGHTER, transition);
+  states.commands.handle("confirm", STATE.LEVEL_INTRO, transition);
+  machine.transition(STATE.PAUSED);
+  states.commands.handle("restartLevel", STATE.PAUSED, transition);
+  assert(machine.currentName === STATE.PAUSED && states.campaign.attemptsRemaining === 3, "T consumió antes de confirmar");
+  states.commands.cancelAbandon();
+  assert(states.campaign.attemptsRemaining === 3, "cancelar reinicio alteró intentos");
+  states.commands.handle("restartLevel", STATE.PAUSED, transition);
+  states.commands.handle("confirm", STATE.PAUSED, transition);
+  assert(machine.currentName === STATE.PLAYING && states.campaign.attemptsRemaining === 2, "confirmar reinicio no consumió exactamente un intento");
+});
+
+run("Selección con teclado entrega cada estudiante al nivel cargado", () => {
+  for (const [fighterId, code] of [["alma", null], ["diego", "KeyD"], ["nadia", "KeyD"]]) {
+    const clock = new GameClock();
+    const input = new InputController();
+    let machine;
+    const states = createStates(clock, input, (next) => machine.transition(next), memoryStorage());
+    machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+    input.connect({ stateMachine: machine, clock, loop: { resetTiming() {} }, commands: states.commands });
+    input.mount();
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Enter", bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "Enter", bubbles: true }));
+    if (code) {
+      window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true }));
+      if (fighterId === "nadia") {
+        window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyD", bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyD", bubbles: true }));
+      }
+    }
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Enter", bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent("keyup", { code: "Enter", bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Enter", bubbles: true }));
+    assert(machine.currentName === STATE.PLAYING && states.campaign.selectedFighterId === fighterId && states.getLevel().player.fighterId === fighterId, `selección no cargó ${fighterId}`);
+    input.unmount();
+  }
+});
+
+run("Victoria pasa a pantalla final; Game Over permite reintento o campaña nueva", () => {
+  const campaign = new CampaignController();
+  campaign.selectFighter("nadia");
+  campaign.settleDefeat();
+  assert(campaign.retryAfterDefeat() && campaign.attemptsRemaining === 2, "Game Over no permite reintentar con intentos disponibles");
+  campaign.reset();
+  campaign.selectFighter("alma");
+  campaign.settleVictory({ playerHp: 100, remainingSeconds: 150, attemptScore: 0 });
+  assert(!campaign.advance() && campaign.snapshot.marks[0] && campaign.snapshot.terminal === "VICTORIA", "Nivel 1 no llega al cierre provisional");
+});
+
+run("El estado del combate lleva la campaña a VICTORIA/GAME OVER y KO simultáneo prioriza victoria", () => {
+  function startCampaign() {
+    const clock = new GameClock();
+    const input = { clear() {}, snapshotForStep: () => actions() };
+    let machine;
+    const states = createStates(clock, input, (next) => machine.transition(next), memoryStorage());
+    machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+    const transition = (next) => machine.transition(next);
+    states.commands.handle("confirm", STATE.MENU, transition);
+    states.commands.handle("confirm", STATE.SELECT_FIGHTER, transition);
+    states.commands.handle("confirm", STATE.LEVEL_INTRO, transition);
+    return { machine, states };
+  }
+  const win = startCampaign();
+  win.states.getLevel().combat.enemy.applyDamage(80, { sourceId: "test", attackInstanceId: "win", step: 1 });
+  win.machine.update(dt);
+  assert(win.machine.currentName === STATE.VICTORY && win.states.campaign.marks[0] && win.states.campaign.attemptsRemaining === 3, "victoria no cerró nivel/consolidó marca sin consumir intento");
+
+  const loss = startCampaign();
+  loss.states.getLevel().combat.playerCombatant.applyDamage(100, { sourceId: "test", attackInstanceId: "loss", step: 1 });
+  loss.machine.update(dt);
+  assert(loss.machine.currentName === STATE.GAME_OVER && loss.states.campaign.attemptsRemaining === 2 && !loss.states.campaign.marks[0], "derrota no consumió exactamente un intento");
+
+  const tie = startCampaign();
+  const tieLevel = tie.states.getLevel();
+  tieLevel.combat.enemy.applyDamage(80, { sourceId: "test", attackInstanceId: "tie-enemy", step: 1 });
+  tieLevel.combat.playerCombatant.applyDamage(100, { sourceId: "test", attackInstanceId: "tie-player", step: 1 });
+  tie.machine.update(dt);
+  assert(tie.machine.currentName === STATE.VICTORY && tie.states.campaign.marks[0], "KO simultáneo no abrió VICTORIA");
+});
+
+run("El controlador avanza niveles solo cuando hay datos y cierra al agotarse la lista", () => {
+  const campaign = new CampaignController([
+    { id: "nivel-1", data: LEVEL_1_DATA },
+    { id: "nivel-futuro", data: { id: "nivel-futuro" } },
+  ]);
+  assert(campaign.advance() && campaign.levelIndex === 1 && campaign.currentLevel.id === "nivel-futuro", "no avanzó al siguiente dato de nivel");
+  assert(!campaign.advance() && campaign.terminal === "VICTORIA", "no cerró después del último nivel configurado");
+});
+
+run("El récord se guarda solo en terminal y conserva el mejor puntaje", () => {
+  const storage = memoryStorage();
+  assert(readCampaignRecord(storage) === 0, "récord inicial no es cero");
+  assert(saveCampaignRecord(1800, storage) === 1800 && storage.getItem(CAMPAIGN_RECORD_STORAGE_KEY) === "1800", "no guardó récord terminado");
+  assert(saveCampaignRecord(900, storage) === 1800 && readCampaignRecord(storage) === 1800, "reemplazó récord por puntuación menor");
+  const denied = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } };
+  assert(readCampaignRecord(denied) === null && saveCampaignRecord(2000, denied) === null, "no manejó almacenamiento bloqueado");
+  const campaign = new CampaignController();
+  campaign.selectFighter("alma");
+  campaign.addCombatEvents([
+    { kind: "damageApplied", targetId: "chilo", sourceId: "alma", attackInstanceId: "alma-normal-1" },
+    { kind: "damageApplied", targetId: "chilo", sourceId: "alma", attackInstanceId: "alma-special-1-projectile-1" },
+    { kind: "damageApplied", targetId: "chilo", sourceId: "alma", attackInstanceId: "alma-special-1-projectile-2" },
+  ]);
+  assert(campaign.attemptScore === 35, `puntaje de golpes/especial duplicado o incorrecto: ${campaign.attemptScore}`);
 });
 
 for (const result of results) {

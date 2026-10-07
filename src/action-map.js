@@ -12,6 +12,8 @@ export const ACTION = Object.freeze({
   CONFIRM: "confirm",
   GAME_OVER_TEST: "gameOverTest",
   MENU_TEST: "menuTest",
+  SELECT_PREVIOUS: "selectPrevious",
+  SELECT_NEXT: "selectNext",
 });
 
 export const DEFAULT_ACTION_BINDINGS = Object.freeze({
@@ -28,6 +30,8 @@ export const DEFAULT_ACTION_BINDINGS = Object.freeze({
   [ACTION.CONFIRM]: Object.freeze(["Enter"]),
   [ACTION.GAME_OVER_TEST]: Object.freeze(["KeyG"]),
   [ACTION.MENU_TEST]: Object.freeze(["KeyM"]),
+  [ACTION.SELECT_PREVIOUS]: Object.freeze(["KeyA", "ArrowLeft"]),
+  [ACTION.SELECT_NEXT]: Object.freeze(["KeyD", "ArrowRight"]),
 });
 
 export const BUFFERED_ACTIONS = new Set([

@@ -6,6 +6,7 @@ const freezeRectangles = (rectangles) => Object.freeze(rectangles.map((rectangle
 export const LEVEL_1_DATA = Object.freeze({
   id: "nivel-1",
   name: "Nivel 1 · Estacionamiento",
+  objective: "Practica los controles con Chilo y obtén la marca inicial",
   timeLimitSec: 150,
   arena: Object.freeze({
     width: 960,
