@@ -27,14 +27,15 @@ if (!context) {
 
   const clock = new GameClock();
   const input = new InputController();
-  const states = createStates(clock, input);
+  let stateMachine;
+  const states = createStates(clock, input, () => stateMachine.transition(STATE.GAME_OVER));
   const transitions = new Map([
     [STATE.MENU, new Set([STATE.PLAYING])],
     [STATE.PLAYING, new Set([STATE.PAUSED, STATE.GAME_OVER])],
     [STATE.PAUSED, new Set([STATE.PLAYING, STATE.MENU])],
     [STATE.GAME_OVER, new Set([STATE.MENU])],
   ]);
-  const stateMachine = new StateMachine(states, transitions, STATE.MENU);
+  stateMachine = new StateMachine(states, transitions, STATE.MENU);
 
   const render = (framesPerSecond, alpha) => {
     stateMachine.render(context, stateMachine.snapshot, alpha);

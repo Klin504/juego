@@ -3,6 +3,7 @@ import {
   PLAYER_BODY_HEIGHT_PX,
   PLAYER_BODY_WIDTH_PX,
 } from "./physics-config.js";
+import { INVULNERABILITY_BLINK_INTERVAL_SEC, PLAYER_HURTBOX, PLAYER_INVULNERABLE_ALPHA } from "./combat-config.js";
 
 const PLAYER_FILL = "#83c9ff";
 const PLAYER_EDGE = "#e9f6ff";
@@ -37,13 +38,26 @@ export class FighterEntity {
     };
   }
 
-  render(ctx, debugEnabled) {
+  get hurtBox() {
+    return {
+      x: this.position.x - PLAYER_HURTBOX.width / 2,
+      y: this.position.y - PLAYER_HURTBOX.height,
+      width: PLAYER_HURTBOX.width,
+      height: PLAYER_HURTBOX.height,
+    };
+  }
+
+  render(ctx, debugEnabled, combatant = null) {
     const body = this.bodyBox;
+    const blink = combatant?.invulnerable &&
+      Math.floor(combatant.invulnerabilityRemainingSec / INVULNERABILITY_BLINK_INTERVAL_SEC) % 2 === 0;
+    ctx.globalAlpha = blink ? PLAYER_INVULNERABLE_ALPHA : 1;
     ctx.fillStyle = PLAYER_FILL;
     ctx.fillRect(body.x, body.y, body.width, body.height);
     ctx.strokeStyle = PLAYER_EDGE;
     ctx.lineWidth = 2;
     ctx.strokeRect(body.x + 1, body.y + 1, body.width - 2, body.height - 2);
+    ctx.globalAlpha = 1;
 
     const markX = this.facing > 0 ? body.x + body.width - 9 : body.x + 5;
     ctx.fillStyle = PLAYER_MARK;

@@ -3,6 +3,9 @@ import { TEST_FIGHTER_ID } from "./physics-config.js";
 import { FighterEntity } from "./fighter-entity.js";
 import { PhysicsWorld } from "./physics.js";
 import { TestRoom, TEST_ROOM_START } from "./test-room.js";
+import { CombatSystem } from "./combat-system.js";
+import { COMBAT_OUTCOME } from "./combat-config.js";
+import { TRAINING_DUMMY_DATA } from "./combat-data.js";
 
 const COLORS = Object.freeze({ background: "#101622", panel: "#1d2939", border: "#47d7c8", text: "#f2f4f8", muted: "#b6c2d2", accent: "#ffca6a" });
 const PANEL = Object.freeze({ x: 104, y: 92, width: 752, height: 356 });
@@ -41,22 +44,31 @@ function drawScreen(ctx, title, lines, elapsedSeconds = 0) {
   }
 }
 
-export function createStates(clock, input) {
+export function createStates(clock, input, transitionToGameOver) {
   const idle = () => {};
   const state = (render, update = idle, enter = idle, exit = idle) => ({ enter, exit, update, render });
   const room = new TestRoom();
   let player = new FighterEntity({ fighterId: TEST_FIGHTER_ID, ...TEST_ROOM_START });
+  let combat = new CombatSystem({ player, enemyData: TRAINING_DUMMY_DATA, solids: room.solids });
   const physics = new PhysicsWorld();
+  const physicsSolids = [...room.solids, combat.enemy.bodyBox];
   let debugEnabled = false;
 
   return new Map([
-    [STATE.MENU, state((ctx) => drawScreen(ctx, STATE.MENU, ["Entrada y física base · Fase 2.2", "Enter: iniciar · estudiante: Alma", "A/D o flechas: mover · W/↑/Espacio: saltar"]), idle, () => {
+    [STATE.MENU, state((ctx) => drawScreen(ctx, STATE.MENU, ["Sistema de combate compartido · Fase 2.3", "Enter: iniciar · estudiante: Alma", "A/D o flechas mover · W/↑/Espacio saltar · S cubrir", "R atacar · Shift especial · P/Escape pausar · F2 cajas"]), idle, () => {
       player = new FighterEntity({ fighterId: TEST_FIGHTER_ID, ...TEST_ROOM_START });
+      combat = new CombatSystem({ player, enemyData: TRAINING_DUMMY_DATA, solids: room.solids });
       debugEnabled = false;
     })],
     [STATE.PLAYING, state((ctx) => {
-      room.render(ctx);
-      player.render(ctx, debugEnabled);
+      room.render(ctx, false);
+      combat.renderTelegraphs(ctx);
+      player.render(ctx, debugEnabled, combat.playerCombatant);
+      combat.enemy.render(ctx);
+      combat.renderProjectiles(ctx);
+      combat.renderHud(ctx);
+      combat.renderSpecialStatus(ctx);
+      if (debugEnabled) combat.renderDebug(ctx);
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillStyle = COLORS.text;
@@ -65,8 +77,14 @@ export function createStates(clock, input) {
     }, (dt) => {
       const actions = input.snapshotForStep();
       if (actions.debugToggle.pressed) debugEnabled = !debugEnabled;
-      physics.update(player, actions, dt, room.solids);
+      physicsSolids[physicsSolids.length - 1] = combat.enemy.bodyBox;
+      physics.update(player, actions, dt, physicsSolids);
+      combat.update(dt, actions);
       clock.update(dt);
+      if (combat.outcome === COMBAT_OUTCOME.PLAYER_DEFEAT) {
+        input.clear();
+        transitionToGameOver();
+      }
     })],
     [STATE.PAUSED, state((ctx) => drawScreen(ctx, STATE.PAUSED, ["El reloj está detenido.", "P o Escape: reanudar · M: volver al menú"], clock.elapsedSeconds))],
     [STATE.GAME_OVER, state((ctx) => drawScreen(ctx, STATE.GAME_OVER, ["Demostración terminada.", "Enter: volver al menú"], clock.elapsedSeconds))],

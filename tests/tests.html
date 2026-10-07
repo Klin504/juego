@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pruebas automáticas · combate 2.3</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.5 system-ui, sans-serif; background: #101622; color: #f2f4f8; }
+    body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { color: #47d7c8; }
+    #summary { padding: .75rem 1rem; background: #1d2939; border-left: 4px solid #47d7c8; }
+    li { padding: .35rem 0; }
+    .pass { color: #75e397; }
+    .fail { color: #ff7682; }
+    code { color: #ffd95a; }
+  </style>
+</head>
+<body>
+  <h1>Pruebas de cierre · Fase 2.3</h1>
+  <p>Se ejecutan sobre los módulos reales del juego, con paso fijo de 1/60 s y sin dependencias externas.</p>
+  <p id="summary" role="status">Ejecutando…</p>
+  <ol id="results"></ol>
+  <script type="module" src="./tests.js"></script>
+</body>
+</html>

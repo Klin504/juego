@@ -28,7 +28,7 @@ export class TestRoom {
     return TEST_ROOM_SOLIDS;
   }
 
-  render(ctx) {
+  render(ctx, showControls = true) {
     ctx.fillStyle = ROOM_BACKGROUND;
     ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
@@ -45,12 +45,13 @@ export class TestRoom {
       ctx.strokeRect(solid.x, solid.y, solid.width, solid.height);
     }
 
+    if (!showControls) return;
     ctx.fillStyle = LABEL_COLOR;
     ctx.font = LABEL_FONT;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.fillText(
-      "A/D o ←/→ mover · W/↑/Espacio saltar · S cubrir · R atacar · F2 cajas",
+      "A/D o ←/→ mover · W/↑/Espacio saltar · S cubrir · R atacar · Shift especial · F2 combate",
       LABEL_X,
       LABEL_Y,
     );
