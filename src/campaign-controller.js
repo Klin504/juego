@@ -40,6 +40,14 @@ export class CampaignController {
     return true;
   }
 
+  startAtLevelForHarness(levelIndex) {
+    if (!Number.isInteger(levelIndex) || levelIndex < 0 || levelIndex >= this.levels.length || !this.selectedFighterId) return false;
+    this.levelIndex = levelIndex;
+    this.terminal = null;
+    this.attemptScore = 0;
+    return true;
+  }
+
   addCombatEvents(events) {
     for (const event of events) {
       if (event.kind !== "damageApplied" || event.targetId === this.selectedFighterId) continue;

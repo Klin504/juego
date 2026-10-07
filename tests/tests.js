@@ -17,6 +17,15 @@ import { EnemyCombatant } from "../src/enemy-combatant.js";
 import { CampaignController } from "../src/campaign-controller.js";
 import { VALID_STATE_TRANSITIONS } from "../src/campaign-transitions.js";
 import { CAMPAIGN_RECORD_STORAGE_KEY, readCampaignRecord, saveCampaignRecord } from "../src/campaign-storage.js";
+import { LEVEL_2_DATA } from "../src/level-2-data.js";
+import { VERA_BALL_ATTACK, VERA_DATA, VERA_RUN_ATTACK } from "../src/vera-data.js";
+import { Vera } from "../src/vera.js";
+import { CAMPAIGN_LEVELS } from "../src/campaign-data.js";
+import { LEVEL_3_DATA } from "../src/level-3-data.js";
+import { CATODO3_DATA, CATODO_PULSE_ATTACK, CATODO_SENSOR_LEFT_ATTACK, CATODO_SENSOR_RIGHT_ATTACK } from "../src/catodo3-data.js";
+import { Catodo3 } from "../src/catodo3.js";
+import { LABORATORY_MECHANICS } from "../src/laboratory-mechanics.js";
+import { Projectile } from "../src/projectile.js";
 
 const output = document.querySelector("#results");
 const summary = document.querySelector("#summary");
@@ -89,6 +98,325 @@ run("El cargador construye Nivel 1 desde datos con estado limpio", () => {
   assert(level.data.timeLimitSec === 150 && level.data.arena.solids.length === 3, "arena o límite de tiempo incorrecto");
   const genericEnemy = loadLevel({ ...LEVEL_1_DATA, enemyType: "enemigo-configurable" }, "diego").enemy;
   assert(genericEnemy instanceof EnemyCombatant, "el cargador no acepta enemigos base configurados por datos");
+});
+
+run("El cargador construye Nivel 2 con Vera y estado inicial limpio", () => {
+  const level = loadLevel(LEVEL_2_DATA, "diego");
+  assert(level.data === LEVEL_2_DATA && level.data.id === "nivel-2", "no cargó los datos de cancha");
+  assert(level.enemy instanceof Vera && level.enemy.hp === 110, "Vera no se construyó con 110 HP");
+  assert(level.enemy.position.x === 750 && level.enemy.bodySize.width === 44 && level.enemy.hurtSize.width === 40, "geometría inicial de Vera incorrecta");
+  assert(level.combat.projectiles.length === 0 && level.combat.playerCombatant.hp === 120, "Nivel 2 no inicia limpio");
+  assert(level.elapsedSeconds === 0 && level.status === "en curso" && level.tutorial.completed, "estado/tutorial inicial incorrecto");
+  assert(level.data.timeLimitSec === 210 && level.data.arena.solids.length === 3, "arena o límite incorrecto");
+  assert(level.data.arena.background.some((rect) => rect.id === "court-mid-line"), "faltan líneas decorativas de cancha");
+});
+
+run("Reiniciar el Nivel 2 limpia vida, balón, fase y estado de Vera", () => {
+  const dirty = loadLevel(LEVEL_2_DATA, "nadia");
+  dirty.combat.playerCombatant.applyDamage(10, { sourceId: "vera", attackInstanceId: "dirty-player", step: 1 });
+  dirty.enemy.applyDamage(20, { sourceId: "nadia", attackInstanceId: "dirty-vera", step: 1 });
+  dirty.combat.spawnProjectile({ id: "dirty-court-ball", attackInstanceId: "dirty-court-ball", patternId: "VERA_BALL", owner: "enemy", x: 300, y: 412, velocityX: -260, velocityY: 0, width: 24, height: 24, radius: 12, damage: 15, lifetimeSec: 6, courtReturn: { leftX: 110, rightX: 850, outboundDirection: -1 } });
+  dirty.enemy.attack = { id: "dirty-attack", data: VERA_RUN_ATTACK, elapsedSec: 1.1, phase: "active", facing: -1, targetPosition: { x: 210, y: 391 }, contactedTargets: new Set(), sweepBox: { x: 98, y: 400, width: 764, height: 30 } };
+  const clean = loadLevel(LEVEL_2_DATA, "nadia");
+  assert(clean.combat.playerCombatant.hp === 85 && clean.enemy.hp === 110, "vida no volvió a valores iniciales");
+  assert(clean.combat.projectiles.length === 0 && clean.enemy.attack === null && clean.enemy.phaseIndex === 0, "quedaron balón, ataque o fase residual");
+  assert(clean.elapsedSeconds === 0 && clean.status === "en curso", "tiempo/estado no se reinició");
+});
+
+run("Vera usa patrones, tiempos, daño y vida documentados", () => {
+  assert(VERA_DATA.maxHp === 110 && VERA_BALL_ATTACK.damage === 15, "vida/daño de balón incorrectos");
+  assert(VERA_BALL_ATTACK.startupSec === 0.8 && VERA_BALL_ATTACK.recoverySec === 0.65 && VERA_DATA.interAttackDelaySec === 2.1, "secuencia de balón no coincide con ficha");
+  assert(VERA_RUN_ATTACK.startupSec === 0.95 && VERA_RUN_ATTACK.activeSec === 0.4 && VERA_RUN_ATTACK.recoverySec === 0.75 && VERA_RUN_ATTACK.damage === 20, "tiempos/daño de carrera no coinciden");
+  const level = loadLevel(LEVEL_2_DATA, "alma");
+  let launchedAt = null;
+  for (let step = 1; step <= 180; step += 1) {
+    updateLevel(level, actions(), dt);
+    if (level.lastCombatEvents.some((event) => event.kind === "projectileLaunched" && event.patternId === "VERA_BALL")) { launchedAt = step; break; }
+  }
+  assert(launchedAt !== null && level.combat.projectiles.length === 1, "Vera no lanzó el balón tras el aviso");
+  const ball = level.combat.projectiles[0];
+  assert(ball.attackInstanceId === level.enemy.attack?.id || ball.attackInstanceId.includes("vera-attack-"), "el balón no conserva ID de instancia de ataque");
+  assert(ball.position.y === 412 && ball.radius === 12 && ball.velocity.x < 0, "balón/rumbo de ida incorrectos");
+  const run = loadLevel(LEVEL_2_DATA, "alma");
+  for (let step = 0; step < 700 && run.enemy.attack?.data.patternId !== "VERA_RUN"; step += 1) updateLevel(run, actions(), dt);
+  assert(run.enemy.attack?.data.patternId === "VERA_RUN", "no alternó del balón a la carrera");
+  assert(run.enemy.attack.sweepBox.y === 400 && run.enemy.attack.sweepBox.height === 30, "línea de carrera no ocupa y=400…430");
+});
+
+run("El balón de Vera rebota una vez y aplica un solo contacto por ID", () => {
+  const player = new FighterEntity({ fighterId: "alma", x: 500, y: 430 });
+  player.grounded = true;
+  const quietEnemy = { ...TRAINING_DUMMY_DATA, initialDelaySec: 99, attacks: Object.freeze([]) };
+  const combat = new CombatSystem({ player, enemyData: quietEnemy, solids: [] });
+  combat.spawnProjectile({ id: "vera-ball-test", attackInstanceId: "vera-attack-1", patternId: "VERA_BALL", owner: "enemy", x: 600, y: 412, velocityX: -260, velocityY: 0, width: 24, height: 24, radius: 12, damage: 15, lifetimeSec: 6, courtReturn: { leftX: 110, rightX: 850, outboundDirection: -1 } });
+  let firstContact = false;
+  for (let step = 0; step < 60; step += 1) {
+    const events = combat.update(dt, actions());
+    if (events.some((event) => event.kind === "projectileContact")) { firstContact = true; break; }
+  }
+  assert(firstContact && combat.playerCombatant.hp === 85, "ida no infligió 15 de daño (Alma)");
+  const projectile = combat.projectiles[0];
+  const sameId = projectile.attackInstanceId;
+  let returned = false;
+  let previousX = projectile.position.x;
+  for (let step = 0; step < 400 && combat.projectiles.length; step += 1) {
+    combat.update(dt, actions());
+    const current = combat.projectiles[0];
+    if (current && current.velocity.x > 0 && current.position.x > previousX) returned = true;
+    if (current) previousX = current.position.x;
+  }
+  assert(returned, "el balón no rebotó ni regresó");
+  assert(combat.playerCombatant.hp === 85, "el regreso duplicó el daño de la misma instancia");
+  assert(combat.projectiles.length === 0 && sameId === "vera-attack-1", "el proyectil no se limpió o cambió ID");
+});
+
+run("La carrera de Vera se puede evitar saltando y no se mitiga con guardia", () => {
+  const level = loadLevel(LEVEL_2_DATA, "diego");
+  const attack = { ...VERA_RUN_ATTACK, startupSec: 0, activeSec: 0.4 };
+  const enemy = new Vera({ ...VERA_DATA, initialDelaySec: 99, attacks: Object.freeze([attack]) });
+  enemy.attack = { id: "vera-run-test", data: attack, elapsedSec: 0, phase: "active", facing: -1, targetPosition: { x: 210, y: 391 }, contactedTargets: new Set(), sweepBox: { x: 98, y: 400, width: 764, height: 30 } };
+  const player = level.player;
+  player.position.x = 500;
+  const groundedCombat = new CombatSystem({ player, enemyData: { ...VERA_DATA, initialDelaySec: 99 }, enemyFactory: () => enemy, solids: [] });
+  groundedCombat.update(dt, actions({ guard: { pressed: false, held: true, released: false } }));
+  assert(groundedCombat.playerCombatant.hp === 100, "S redujo el daño de carrera que debe ignorarlo");
+  const jumper = new FighterEntity({ fighterId: "alma", x: 500, y: 400 });
+  jumper.grounded = false;
+  const jumpEnemy = new Vera({ ...VERA_DATA, initialDelaySec: 99 });
+  jumpEnemy.attack = { id: "vera-run-jump", data: attack, elapsedSec: 0.1, phase: "active", facing: -1, targetPosition: { x: 500, y: 361 }, contactedTargets: new Set(), sweepBox: { x: 98, y: 400, width: 764, height: 30 } };
+  const jumpCombat = new CombatSystem({ player: jumper, enemyData: VERA_DATA, enemyFactory: () => jumpEnemy, solids: [] });
+  jumpCombat.update(dt, actions());
+  assert(jumpCombat.playerCombatant.hp === 100, "la carrera golpeó al jugador con pies a y=400");
+});
+
+run("S reduce el balón de Vera a 5 de daño", () => {
+  const player = new FighterEntity({ fighterId: "alma", x: 500, y: 430 });
+  player.grounded = true;
+  const quietEnemy = { ...TRAINING_DUMMY_DATA, initialDelaySec: 99, attacks: Object.freeze([]) };
+  const combat = new CombatSystem({ player, enemyData: quietEnemy, solids: [] });
+  combat.spawnProjectile({ id: "vera-ball-guard", attackInstanceId: "vera-guard-1", patternId: "VERA_BALL", owner: "enemy", x: 500, y: 412, velocityX: 0, velocityY: 0, width: 24, height: 24, radius: 12, damage: 15, lifetimeSec: 2, courtReturn: { leftX: 110, rightX: 850, outboundDirection: -1 } });
+  combat.update(dt, actions({ guard: { pressed: false, held: true, released: false } }));
+  assert(combat.playerCombatant.hp === 95, `guardia dejó ${combat.playerCombatant.hp} HP; debía aplicar 5 de daño`);
+});
+
+run("Pausa congela un ataque activo de Vera y reanudar no aplica daño fantasma", () => {
+  const level = loadLevel(LEVEL_2_DATA, "alma");
+  level.player.position.x = 500;
+  level.enemy.attack = { id: "vera-run-pause", data: VERA_RUN_ATTACK, elapsedSec: 1.05, phase: "active", facing: -1, targetPosition: { x: 500, y: 391 }, contactedTargets: new Set(), sweepBox: { x: 98, y: 400, width: 764, height: 30 } };
+  const before = level.enemy.attack.elapsedSec;
+  const hpBefore = level.combat.playerCombatant.hp;
+  const ball = { id: "paused-ball", attackInstanceId: "paused-ball", patternId: "VERA_BALL", owner: "enemy", x: 600, y: 412, velocityX: -260, velocityY: 0, width: 24, height: 24, radius: 12, damage: 15, lifetimeSec: null, courtReturn: { leftX: 110, rightX: 850, outboundDirection: -1 } };
+  level.combat.spawnProjectile(ball);
+  const projectileX = level.combat.projectiles[0].position.x;
+  for (let step = 0; step < 120; step += 1) { /* Estado PAUSA: no se ejecuta updateLevel. */ }
+  assert(level.enemy.attack.elapsedSec === before && level.combat.playerCombatant.hp === hpBefore, "el ataque cambió durante la pausa");
+  assert(level.combat.projectiles[0].position.x === projectileX, "el balón avanzó durante la pausa");
+  updateLevel(level, actions(), dt);
+  assert(level.combat.playerCombatant.hp === hpBefore - 20, "el daño de carrera no se aplicó al reanudar en el paso activo");
+  assert(level.enemy.attack.elapsedSec === before + dt, "la fase no continuó desde el tiempo pausado");
+});
+
+run("La campaña enlaza niveles 1–3, conserva estudiante y cierra tras CÁTODO-3", () => {
+  assert(CAMPAIGN_LEVELS.length === 3 && CAMPAIGN_LEVELS[1].data === LEVEL_2_DATA && CAMPAIGN_LEVELS[2].data === LEVEL_3_DATA, "niveles 2/3 no están registrados en campaña");
+  for (const fighterId of ["alma", "diego", "nadia"]) {
+    const playable = loadLevel(LEVEL_2_DATA, fighterId);
+    assert(playable.enemy instanceof Vera && playable.player.fighterId === fighterId, `Nivel 2 no construye a ${fighterId}`);
+    const campaign = new CampaignController();
+    campaign.selectFighter(fighterId);
+    campaign.settleVictory({ playerHp: 80, remainingSeconds: 30 });
+    assert(campaign.advance() && campaign.currentLevel.id === "nivel-2" && campaign.selectedFighterId === fighterId, `no conservó estudiante ${fighterId} al avanzar`);
+    campaign.settleVictory({ playerHp: 80, remainingSeconds: 30 });
+    assert(campaign.advance() && campaign.currentLevel.id === "nivel-3", "Nivel 2 no pasó a Nivel 3");
+    campaign.settleVictory({ playerHp: 80, remainingSeconds: 30 });
+    assert(!campaign.advance() && campaign.terminal === "VICTORIA", "la campaña no cierra tras CÁTODO-3");
+  }
+  const retries = new CampaignController();
+  retries.selectFighter("alma");
+  retries.advance();
+  retries.advance();
+  assert(retries.attemptsRemaining === 3 && retries.currentLevel.id === "nivel-3", "avance consumió intento");
+  assert(retries.settleDefeat() && retries.attemptsRemaining === 2 && retries.retryAfterDefeat(), "derrota no conserva regla de reintentos");
+});
+
+run("Victoria de Nivel 1 abre Nivel 2 cargado con el mismo estudiante", () => {
+  const clock = new GameClock();
+  const input = { clear() {}, snapshotForStep: () => actions() };
+  let machine;
+  const states = createStates(clock, input, (next) => machine.transition(next), memoryStorage());
+  machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+  const transition = (next) => machine.transition(next);
+  states.commands.handle("confirm", STATE.MENU, transition);
+  states.commands.handle("selectNext", STATE.SELECT_FIGHTER, transition);
+  states.commands.handle("confirm", STATE.SELECT_FIGHTER, transition);
+  states.commands.handle("confirm", STATE.LEVEL_INTRO, transition);
+  states.getLevel().combat.enemy.applyDamage(80, { sourceId: "test", attackInstanceId: "win-level-1", step: 1 });
+  machine.update(dt);
+  assert(machine.currentName === STATE.VICTORY && states.campaign.marks[0], "Nivel 1 no registró victoria");
+  states.commands.handle("confirm", STATE.VICTORY, transition);
+  states.commands.handle("confirm", STATE.LEVEL_INTRO, transition);
+  assert(machine.currentName === STATE.PLAYING && states.campaign.currentLevel.id === "nivel-2", "no cargó el Nivel 2 después de la marca inicial");
+  assert(states.campaign.selectedFighterId === "diego" && states.getLevel().player.fighterId === "diego", "no conservó estudiante al cambiar de nivel");
+});
+
+run("Arnés Digit2 inicia el Nivel 2 con el luchador seleccionado", () => {
+  const clock = new GameClock();
+  const input = new InputController();
+  let machine;
+  const states = createStates(clock, input, (next) => machine.transition(next), memoryStorage());
+  machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+  input.connect({ stateMachine: machine, clock, loop: { resetTiming() {} }, commands: states.commands });
+  const transition = (next) => machine.transition(next);
+  states.commands.handle("confirm", STATE.MENU, transition);
+  states.commands.handle("selectNext", STATE.SELECT_FIGHTER, transition);
+  input.handleKeyDown({ code: "Digit2", repeat: false, isComposing: false, ctrlKey: false, altKey: false, metaKey: false, preventDefault() {} });
+  assert(machine.currentName === STATE.LEVEL_INTRO && states.campaign.currentLevel.id === "nivel-2" && states.campaign.selectedFighterId === "diego", `el atajo no abrió Nivel 2 con Diego (${machine.currentName}, ${states.campaign.currentLevel?.id}, ${states.campaign.selectedFighterId})`);
+});
+
+run("El cargador construye Nivel 3 y deja el laboratorio limpio", () => {
+  const level = loadLevel(LEVEL_3_DATA, "alma");
+  assert(level.data === LEVEL_3_DATA && level.data.id === "nivel-3", "no cargó datos del laboratorio");
+  assert(level.enemy instanceof Catodo3 && level.enemy.hp === 130, "no creó CÁTODO-3 con 130 HP");
+  assert(level.enemy.position.x === 750 && level.enemy.bodySize.width === 52 && level.enemy.hurtSize.width === 48, "spawns/geometría de CÁTODO-3 incorrectos");
+  assert(level.combat.projectiles.length === 0 && level.combat.playerCombatant.hp === 100, "el nivel empieza con daño/proyectil residual");
+  assert(level.elapsedSeconds === 0 && level.status === "en curso" && level.tutorial.completed, "estado inicial del nivel incorrecto");
+  assert(level.data.timeLimitSec === 270 && level.data.arena.solids.length === 3, "arena/límite del Nivel 3 incorrectos");
+  assert(level.data.arena.background.some((rect) => rect.id === "lab-mesón-left"), "no hay decorado de laboratorio");
+});
+
+run("Recrear Nivel 3 limpia vida, pulso, fase y ataque del laboratorio", () => {
+  const dirty = loadLevel(LEVEL_3_DATA, "nadia");
+  dirty.combat.playerCombatant.applyDamage(9, { sourceId: "catodo3", attackInstanceId: "lab-dirty", step: 1 });
+  dirty.enemy.applyDamage(20, { sourceId: "nadia", attackInstanceId: "lab-dirty", step: 1 });
+  dirty.combat.spawnProjectile({ id: "dirty-pulse", attackInstanceId: "dirty-pulse", patternId: "CATODO_PULSE", owner: "enemy", x: 350, y: 410, velocityX: -200, velocityY: 0, width: 32, height: 32, radius: 16, damage: 16, lifetimeSec: 4 });
+  dirty.enemy.attack = { id: "dirty-sensor", data: CATODO_SENSOR_LEFT_ATTACK, elapsedSec: 1.2, phase: "active", facing: -1, targetPosition: { x: 210, y: 391 }, contactedTargets: new Set(), sensorBox: { x: 260, y: 400, width: 120, height: 30 } };
+  const clean = loadLevel(LEVEL_3_DATA, "nadia");
+  assert(clean.combat.playerCombatant.hp === 85 && clean.enemy.hp === 130, "no restauró la vida inicial");
+  assert(clean.combat.projectiles.length === 0 && clean.enemy.attack === null && clean.enemy.phaseIndex === 0, "quedó pulso o ataque residual");
+  assert(clean.elapsedSeconds === 0 && clean.status === "en curso", "estado/tiempo residual");
+});
+
+run("CÁTODO-3 respeta vida, secuencia y tiempos documentados", () => {
+  assert(CATODO3_DATA.maxHp === 130 && CATODO3_DATA.projectile.radius === 16 && CATODO3_DATA.projectile.speedPxPerSec === 200, "vida/orbe fuera de ficha");
+  assert(CATODO_PULSE_ATTACK.startupSec === 0.85 && CATODO_PULSE_ATTACK.damage === 16 && CATODO_PULSE_ATTACK.recoverySec === 0.7, "datos de pulso incorrectos");
+  assert(CATODO_SENSOR_LEFT_ATTACK.startupSec === 1.15 && CATODO_SENSOR_LEFT_ATTACK.activeSec === 0.5 && CATODO_SENSOR_LEFT_ATTACK.recoverySec === 0.8 && CATODO_SENSOR_LEFT_ATTACK.damage === 19, "datos de sensor incorrectos");
+  assert(CATODO_SENSOR_RIGHT_ATTACK.patternId === "CATODO_SENSOR_R" && CATODO3_DATA.interAttackDelaySec === 1.9, "secuencia derecha/intervalo incorrectos");
+  assert(CATODO3_DATA.attacks.map((attack) => attack.patternId).join(",") === "CATODO_PULSE,CATODO_SENSOR_L,CATODO_PULSE,CATODO_SENSOR_R", "secuencia no alterna pulso e izquierda/derecha");
+  const level = loadLevel(LEVEL_3_DATA, "diego");
+  let pulseLaunched = false;
+  for (let step = 0; step < 300; step += 1) {
+    updateLevel(level, actions(), dt);
+    if (level.lastCombatEvents.some((event) => event.kind === "projectileLaunched" && event.patternId === "CATODO_PULSE")) { pulseLaunched = true; break; }
+  }
+  assert(pulseLaunched && level.combat.projectiles.length === 1, "no lanzó el pulso después de aviso");
+  const pulse = level.combat.projectiles[0];
+  assert(Math.abs(pulse.position.x - (710 - 200 * dt)) < 1e-6 && pulse.position.y === 410 && pulse.velocity.x === -200 && pulse.radius === 16, "origen, trayectoria o velocidad del pulso no coinciden");
+  for (let step = 0; step < 500 && level.enemy.attack?.data.patternId !== "CATODO_SENSOR_L"; step += 1) updateLevel(level, actions(), dt);
+  assert(level.enemy.attack?.data.patternId === "CATODO_SENSOR_L", "no siguió sensor izquierdo al pulso");
+  assert(level.enemy.attack.sensorBox.x === 260 && level.enemy.attack.sensorBox.width === 120, "zona del sensor izquierdo incorrecta");
+  const phases = new Set();
+  for (let step = 0; step < 180; step += 1) {
+    updateLevel(level, actions(), dt);
+    if (level.enemy.attack?.data.patternId === "CATODO_SENSOR_L") phases.add(level.enemy.attack.phase);
+  }
+  assert(phases.has("warning") && phases.has("active") && phases.has("recovery"), "el sensor no recorrió sus fases");
+});
+
+run("El pulso atraviesa la pared del laboratorio y se limpia al salir de pantalla", () => {
+  const pulse = new Projectile({ id: "pulse-exit", patternId: "CATODO_PULSE", attackInstanceId: "pulse-exit", owner: "enemy", x: 710, y: 410, velocityX: -200, velocityY: 0, width: 32, height: 32, radius: 16, damage: 16, lifetimeSec: 4, ignoreWalls: true });
+  const inertTarget = { id: "inert", hp: 0 };
+  const targetHurtBox = { x: 0, y: 0, width: 1, height: 1 };
+  let crossedWall = false;
+  for (let step = 0; step < 300 && pulse.active; step += 1) {
+    pulse.update(dt, LEVEL_3_DATA.arena.solids, inertTarget, targetHurtBox, 40);
+    if (pulse.position.x < 98) crossedWall = true;
+  }
+  assert(crossedWall, "el pulso no cruzó el muro izquierdo hasta salir de la arena");
+  assert(!pulse.active, "el pulso no se limpió fuera de pantalla");
+});
+
+run("Sensores de laboratorio alternos dejan seguro el centro y admiten salto", () => {
+  assert(LABORATORY_MECHANICS.sensorStrips[0].left === 260 && LABORATORY_MECHANICS.sensorStrips[0].right === 380, "franja izquierda fuera de diseño");
+  assert(LABORATORY_MECHANICS.sensorStrips[1].left === 580 && LABORATORY_MECHANICS.sensorStrips[1].right === 700, "franja derecha fuera de diseño");
+  assert(LABORATORY_MECHANICS.safeCorridor.left === 396 && LABORATORY_MECHANICS.safeCorridor.right === 564, "corredor seguro incorrecto");
+  function sensorFight({ playerX, feetY = 430, guard = false, sensor = CATODO_SENSOR_LEFT_ATTACK }) {
+    const player = new FighterEntity({ fighterId: "alma", x: playerX, y: feetY });
+    player.grounded = feetY === 430;
+    const enemy = new Catodo3({ ...CATODO3_DATA, initialDelaySec: 99 });
+    enemy.attack = { id: "sensor-test", data: sensor, elapsedSec: sensor.startupSec, phase: "active", facing: -1, targetPosition: { x: playerX, y: 391 }, contactedTargets: new Set(), sensorBox: { x: sensor.sensorId === "left" ? 260 : 580, y: 400, width: 120, height: 30 } };
+    const combat = new CombatSystem({ player, enemyData: CATODO3_DATA, enemyFactory: () => enemy, solids: [] });
+    combat.update(dt, actions(guard ? { guard: { pressed: false, held: true, released: false } } : {}));
+    return combat.playerCombatant.hp;
+  }
+  assert(sensorFight({ playerX: 320 }) === 81, "sensor izquierdo no aplicó 19 daño");
+  assert(sensorFight({ playerX: 480 }) === 100, "corredor central recibió daño");
+  assert(sensorFight({ playerX: 320, feetY: 400 }) === 100, "saltar no evitó sensor con 30 px de despeje");
+  assert(sensorFight({ playerX: 640, sensor: CATODO_SENSOR_RIGHT_ATTACK }) === 81, "sensor derecho no aplicó su daño");
+  assert(sensorFight({ playerX: 320, guard: true }) === 81, "S redujo sensor de suelo indebidamente");
+});
+
+run("El pulso de CÁTODO-3 se puede cubrir o despejar con 30 px de salto", () => {
+  function pulseDamage({ guarding = false, feetY = 430 } = {}) {
+    const player = new FighterEntity({ fighterId: "alma", x: 500, y: feetY });
+    player.grounded = feetY === 430;
+    const enemyData = { ...CATODO3_DATA, initialDelaySec: 99, attacks: Object.freeze([]) };
+    const combat = new CombatSystem({ player, enemyData, solids: [] });
+    combat.spawnProjectile({ id: `pulse-${guarding}-${feetY}`, attackInstanceId: `pulse-${guarding}-${feetY}`, patternId: "CATODO_PULSE", owner: "enemy", x: 500, y: 410, velocityX: 0, velocityY: 0, width: 32, height: 32, radius: 16, damage: 16, lifetimeSec: 2, category: "lowProjectile" });
+    combat.update(dt, actions(guarding ? { guard: { pressed: false, held: true, released: false } } : {}));
+    return combat.playerCombatant.hp;
+  }
+  assert(pulseDamage() === 84, "pulso sin defensa no quitó 16 HP");
+  assert(pulseDamage({ guarding: true }) === 95, "S no redujo pulso a 5 de daño");
+  assert(pulseDamage({ feetY: 400 }) === 100, "salto con 30 px de despeje no evitó el pulso");
+});
+
+run("KO simultáneo, derrota, los tres estudiantes y progresión Nivel 2→3→cierre", () => {
+  for (const fighterId of ["alma", "diego", "nadia"]) {
+    const level = loadLevel(LEVEL_3_DATA, fighterId);
+    assert(level.player.fighterId === fighterId && level.enemy instanceof Catodo3, `Nivel 3 no admite ${fighterId}`);
+    level.combat.enemy.applyDamage(130, { sourceId: fighterId, attackInstanceId: "victory", step: 1 });
+    if (fighterId === "alma") level.combat.playerCombatant.applyDamage(100, { sourceId: "catodo3", attackInstanceId: "simultaneous", step: 1 });
+    updateLevel(level, actions(), dt);
+    assert(level.combat.outcome === COMBAT_OUTCOME.PLAYER_VICTORY && level.status === "completado", `KO/victoria no priorizó al jugador ${fighterId}`);
+  }
+  const defeat = loadLevel(LEVEL_3_DATA, "nadia");
+  defeat.combat.playerCombatant.applyDamage(85, { sourceId: "catodo3", attackInstanceId: "defeat", step: 1 });
+  updateLevel(defeat, actions(), dt);
+  assert(defeat.combat.outcome === COMBAT_OUTCOME.PLAYER_DEFEAT && defeat.status === "derrotado", "derrota no queda disponible para Game Over");
+  const campaign = new CampaignController();
+  campaign.selectFighter("diego");
+  campaign.advance();
+  campaign.settleVictory({ playerHp: 100, remainingSeconds: 100 });
+  assert(campaign.advance() && campaign.currentLevel.id === "nivel-3" && campaign.selectedFighterId === "diego", "Nivel 2 no avanzó a Nivel 3 conservando estudiante");
+  campaign.settleVictory({ playerHp: 100, remainingSeconds: 100 });
+  assert(!campaign.advance() && campaign.terminal === "VICTORIA", "Nivel 3 no cerró campaña");
+  const retry = new CampaignController();
+  retry.selectFighter("alma");
+  retry.advance(); retry.advance();
+  assert(retry.settleDefeat() && retry.attemptsRemaining === 2 && retry.retryAfterDefeat(), "intentos de derrota/reintento no se conservan en Nivel 3");
+});
+
+run("Arnés Digit3 abre Nivel 3 y pausa congela ataque de CÁTODO-3", () => {
+  const clock = new GameClock();
+  const input = new InputController();
+  let machine;
+  const states = createStates(clock, input, (next) => machine.transition(next), memoryStorage());
+  machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+  const transition = (next) => machine.transition(next);
+  states.commands.handle("confirm", STATE.MENU, transition);
+  states.commands.handle("selectNext", STATE.SELECT_FIGHTER, transition);
+  input.connect({ stateMachine: machine, clock, loop: { resetTiming() {} }, commands: states.commands });
+  input.handleKeyDown({ code: "Digit3", repeat: false, isComposing: false, ctrlKey: false, altKey: false, metaKey: false, preventDefault() {} });
+  assert(machine.currentName === STATE.LEVEL_INTRO && states.campaign.currentLevel.id === "nivel-3" && states.campaign.selectedFighterId === "diego", "Digit3 no carga nivel con estudiante elegido");
+
+  const level = loadLevel(LEVEL_3_DATA, "alma");
+  level.enemy.attack = { id: "catodo-active", data: CATODO_SENSOR_LEFT_ATTACK, elapsedSec: 1.3, phase: "active", facing: -1, targetPosition: { x: 320, y: 391 }, contactedTargets: new Set(), sensorBox: { x: 260, y: 400, width: 120, height: 30 } };
+  level.player.position.x = 320;
+  const before = level.enemy.attack.elapsedSec;
+  const hp = level.combat.playerCombatant.hp;
+  for (let step = 0; step < 90; step += 1) { /* En PAUSA no corre updateLevel. */ }
+  assert(level.enemy.attack.elapsedSec === before && level.combat.playerCombatant.hp === hp, "sensores cambiaron durante PAUSA");
+  updateLevel(level, actions(), dt);
+  assert(level.combat.playerCombatant.hp === hp - 19 && level.enemy.attack.elapsedSec === before + dt, "al reanudar no continuó el paso activo esperado");
 });
 
 run("El tutorial avanza solo con cada acción y el reinicio vuelve al primer paso", () => {
@@ -537,7 +865,7 @@ run("Transiciones de campaña: rutas válidas y transición inválida rechazada"
 });
 
 run("La campaña conserva selección y aplica intentos, puntos, marcas y reinicio limpio", () => {
-  const campaign = new CampaignController();
+  const campaign = new CampaignController([{ id: "nivel-unico", data: LEVEL_1_DATA }]);
   assert(campaign.attemptsRemaining === 3 && campaign.marks.length === 4, "inicialización distinta al contrato");
   assert(campaign.selectFighter("diego") && campaign.selectedFighterId === "diego", "no guardó estudiante elegido");
   campaign.attemptScore = 37;
@@ -609,7 +937,7 @@ run("Selección con teclado entrega cada estudiante al nivel cargado", () => {
 });
 
 run("Victoria pasa a pantalla final; Game Over permite reintento o campaña nueva", () => {
-  const campaign = new CampaignController();
+  const campaign = new CampaignController([{ id: "nivel-unico", data: LEVEL_1_DATA }]);
   campaign.selectFighter("nadia");
   campaign.settleDefeat();
   assert(campaign.retryAfterDefeat() && campaign.attemptsRemaining === 2, "Game Over no permite reintentar con intentos disponibles");

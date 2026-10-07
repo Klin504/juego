@@ -93,6 +93,9 @@ export class EnemyCombatant {
     return this.currentAttackBox();
   }
 
+  createProjectileSpecification() { return null; }
+  isPlayerSafeFromAttack() { return false; }
+
   currentAttackBox() {
     if (!this.attack || !["melee", "jump"].includes(this.attack.data.kind)) return null;
     const attack = this.attack.data;

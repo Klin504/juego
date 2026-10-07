@@ -147,6 +147,14 @@ export class InputController {
     }
     if (event.repeat || this.#heldCodes.has(code) || this.#commandHeldCodes.has(code)) return;
 
+    if (["Digit2", "Digit3"].includes(code) && this.#stateMachine.currentName === STATE.SELECT_FIGHTER) {
+      event.preventDefault();
+      const action = code === "Digit2" ? ACTION.LEVEL_TWO_HARNESS : ACTION.LEVEL_THREE_HARNESS;
+      this.#commands.handle?.(action, STATE.SELECT_FIGHTER, (next, resetClock = false) => this.#transition(next, resetClock));
+      this.#commandHeldCodes.add(code);
+      return;
+    }
+
     const actions = this.#actionsForCode(code);
     if (actions.length === 0) return;
 
@@ -228,10 +236,13 @@ export class InputController {
       event.preventDefault(); command(ACTION.CONFIRM); return true;
     }
     if (currentState === STATE.SELECT_FIGHTER) {
+      if (event.code === "Digit2") { event.preventDefault(); command(ACTION.LEVEL_TWO_HARNESS); return true; }
       if (actionIncludes(actions, ACTION.SELECT_PREVIOUS)) { event.preventDefault(); command(ACTION.SELECT_PREVIOUS); return true; }
       if (actionIncludes(actions, ACTION.SELECT_NEXT)) { event.preventDefault(); command(ACTION.SELECT_NEXT); return true; }
       if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
       if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
+      if (actionIncludes(actions, ACTION.LEVEL_TWO_HARNESS)) { event.preventDefault(); command(ACTION.LEVEL_TWO_HARNESS); return true; }
+      if (actionIncludes(actions, ACTION.LEVEL_THREE_HARNESS)) { event.preventDefault(); command(ACTION.LEVEL_THREE_HARNESS); return true; }
     }
     if (currentState === STATE.LEVEL_INTRO) {
       if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }

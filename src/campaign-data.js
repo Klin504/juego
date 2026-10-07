@@ -1,9 +1,13 @@
 import { LEVEL_1_DATA } from "./level-1-data.js";
+import { LEVEL_2_DATA } from "./level-2-data.js";
+import { LEVEL_3_DATA } from "./level-3-data.js";
 import { FIGHTER_MAX_SPEED_PX_PER_SEC } from "./physics-config.js";
 import { FIGHTER_COMBAT_STATS } from "./combat-config.js";
 
 export const CAMPAIGN_LEVELS = Object.freeze([
   Object.freeze({ id: LEVEL_1_DATA.id, data: LEVEL_1_DATA }),
+  Object.freeze({ id: LEVEL_2_DATA.id, data: LEVEL_2_DATA }),
+  Object.freeze({ id: LEVEL_3_DATA.id, data: LEVEL_3_DATA }),
 ]);
 
 export const SELECTABLE_FIGHTERS = Object.freeze([

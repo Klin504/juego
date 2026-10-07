@@ -14,6 +14,8 @@ export const ACTION = Object.freeze({
   MENU_TEST: "menuTest",
   SELECT_PREVIOUS: "selectPrevious",
   SELECT_NEXT: "selectNext",
+  LEVEL_TWO_HARNESS: "levelTwoHarness",
+  LEVEL_THREE_HARNESS: "levelThreeHarness",
 });
 
 export const DEFAULT_ACTION_BINDINGS = Object.freeze({
@@ -32,6 +34,8 @@ export const DEFAULT_ACTION_BINDINGS = Object.freeze({
   [ACTION.MENU_TEST]: Object.freeze(["KeyM"]),
   [ACTION.SELECT_PREVIOUS]: Object.freeze(["KeyA", "ArrowLeft"]),
   [ACTION.SELECT_NEXT]: Object.freeze(["KeyD", "ArrowRight"]),
+  [ACTION.LEVEL_TWO_HARNESS]: Object.freeze(["Digit2"]),
+  [ACTION.LEVEL_THREE_HARNESS]: Object.freeze(["Digit3"]),
 });
 
 export const BUFFERED_ACTIONS = new Set([

@@ -42,7 +42,7 @@ function drawScreen(ctx, title, lines) {
   ctx.fillText(title, LOGICAL_WIDTH / 2, 132);
   ctx.fillStyle = COLORS.text;
   ctx.font = "18px 'Courier New', monospace";
-  lines.forEach((line, index) => ctx.fillText(line, LOGICAL_WIDTH / 2, 198 + index * 34));
+  lines.forEach((line, index) => ctx.fillText(line, LOGICAL_WIDTH / 2, 198 + index * 34, PANEL.width - 48));
 }
 
 export function createStates(clock, input, transitionState, storage = globalThis.localStorage) {
@@ -56,6 +56,7 @@ export function createStates(clock, input, transitionState, storage = globalThis
   const idle = () => {};
   const state = (render, update = idle, enter = idle, exit = idle) => ({ enter, exit, update, render });
   const transition = (next, resetClock = false) => transitionState(next, resetClock);
+  const selectedFighterName = () => campaign.fighters.find((fighter) => fighter.id === campaign.selectedFighterId)?.name.split(" ")[0] ?? campaign.selectedFighterId;
   const loadCurrentLevel = () => {
     level = loadLevel(campaign.currentLevel.data, campaign.selectedFighterId);
     campaign.beginAttempt();
@@ -106,7 +107,7 @@ export function createStates(clock, input, transitionState, storage = globalThis
   const states = new Map([
     [STATE.MENU, state((ctx) => drawScreen(ctx, "CHILOS FIGHTERS", ["Cuatro duelos · Tres intentos", "Enter: nueva campaña · G: arnés de derrota", "En selección: A/D o flechas · Enter: confirmar"]))],
     [STATE.SELECT_FIGHTER, state((ctx) => {
-      drawScreen(ctx, "ELIGE A TU ESTUDIANTE", ["A/D o ←/→: seleccionar · Enter: comenzar · M: menú"]);
+      drawScreen(ctx, "ELIGE A TU ESTUDIANTE", ["A/D o ←/→: seleccionar · Enter: comenzar · M: menú", "2 / 3: ARNES · iniciar Nivel 2 / Nivel 3 directamente"]);
       const cardWidth = SELECT_CARD_WIDTH;
       const gap = SELECT_CARD_GAP;
       const left = (LOGICAL_WIDTH - (cardWidth * SELECTABLE_FIGHTERS.length + gap * 2)) / 2;
@@ -130,7 +131,8 @@ export function createStates(clock, input, transitionState, storage = globalThis
     })],
     [STATE.LEVEL_INTRO, state((ctx) => {
       const levelData = campaign.currentLevel.data;
-      drawScreen(ctx, levelData.name, [levelData.objective, "Enter: continuar · M: volver a selección"]);
+      const selectedLine = levelData.studentLines?.intro?.[campaign.selectedFighterId];
+      drawScreen(ctx, levelData.name, [...(levelData.introLines ?? [levelData.objective]), ...(selectedLine ? [`${selectedFighterName()}: «${selectedLine}»`] : []), "Enter: continuar · M: volver a selección"]);
     })],
     [STATE.PLAYING, state((ctx) => {
       renderLevelBackground(ctx, level.data);
@@ -172,12 +174,18 @@ export function createStates(clock, input, transitionState, storage = globalThis
       campaign.attemptsRemaining > 0 ? "T: reintentar nivel · Enter: reiniciar campaña" : "Enter: nueva campaña · M: menú",
       `Puntuación consolidada: ${campaign.campaignScore} · intento perdido descartado`,
     ]))],
-    [STATE.VICTORY, state((ctx) => drawScreen(ctx, "VICTORIA", [
-      campaign.levelIndex + 1 < campaign.levels.length ? `Marca obtenida · Puntuación: ${campaign.campaignScore}` : "Campaña provisional completada: solo está disponible el Nivel 1.",
-      `Estudiante: ${campaign.selectedFighterId} · Intentos restantes: ${campaign.attemptsRemaining}`,
-      `Récord local: ${campaignRecord ?? "no disponible"}`,
-      campaign.levelIndex + 1 < campaign.levels.length ? "Enter: siguiente nivel · M: menú" : "Enter: jugar de nuevo · M: menú",
-    ]))],
+    [STATE.VICTORY, state((ctx) => {
+      const nextLevelExists = campaign.levelIndex + 1 < campaign.levels.length;
+      const studentLine = level?.data.studentLines?.victory?.[campaign.selectedFighterId];
+      const narrative = [...(level?.data.victoryLines ?? []), ...(studentLine ? [`${selectedFighterName()}: «${studentLine}»`] : [])];
+      drawScreen(ctx, "VICTORIA", [
+        nextLevelExists ? `Marca obtenida · Puntuación: ${campaign.campaignScore}` : "Campaña provisional completada: no hay más niveles cargados.",
+        ...narrative,
+        `Estudiante: ${campaign.selectedFighterId} · Intentos restantes: ${campaign.attemptsRemaining}`,
+        `Récord local: ${campaignRecord ?? "no disponible"}`,
+        nextLevelExists ? "Enter: siguiente nivel · M: menú" : "Enter: jugar de nuevo · M: menú",
+      ]);
+    })],
   ]);
 
   states.commands = Object.freeze({
@@ -187,6 +195,14 @@ export function createStates(clock, input, transitionState, storage = globalThis
         if (action === "selectPrevious") selectedIndex = (selectedIndex + SELECTABLE_FIGHTERS.length - 1) % SELECTABLE_FIGHTERS.length;
         else if (action === "selectNext") selectedIndex = (selectedIndex + 1) % SELECTABLE_FIGHTERS.length;
         else if (action === "confirm") selectStudent(inputTransition);
+        else if (action === "levelTwoHarness") {
+          campaign.selectFighter(SELECTABLE_FIGHTERS[selectedIndex].id);
+          if (campaign.startAtLevelForHarness(1)) inputTransition(STATE.LEVEL_INTRO);
+        }
+        else if (action === "levelThreeHarness") {
+          campaign.selectFighter(SELECTABLE_FIGHTERS[selectedIndex].id);
+          if (campaign.startAtLevelForHarness(2)) inputTransition(STATE.LEVEL_INTRO);
+        }
         else if (action === "menuTest") inputTransition(STATE.MENU);
         return true;
       }

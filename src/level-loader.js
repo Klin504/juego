@@ -2,12 +2,16 @@ import { FighterEntity } from "./fighter-entity.js";
 import { PhysicsWorld } from "./physics.js";
 import { CombatSystem } from "./combat-system.js";
 import { Chilo } from "./chilo.js";
+import { Vera } from "./vera.js";
+import { Catodo3 } from "./catodo3.js";
 import { EnemyCombatant } from "./enemy-combatant.js";
 import { TutorialController } from "./tutorial-controller.js";
 import { COMBAT_OUTCOME } from "./combat-config.js";
 
 const ENEMY_FACTORIES = Object.freeze({
   chilo: (data) => new Chilo(data),
+  vera: (data) => new Vera(data),
+  catodo3: (data) => new Catodo3(data),
 });
 
 export function loadLevel(levelData, fighterId) {

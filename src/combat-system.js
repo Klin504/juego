@@ -20,6 +20,7 @@ import { createPlayerCombatant } from "./combatant.js";
 import { orientedAttackBox, rectanglesOverlap } from "./attack-geometry.js";
 import { EnemyCombatant } from "./enemy-combatant.js";
 import { Projectile } from "./projectile.js";
+import { playerClearsGroundHazard, renderSensorWarning } from "./laboratory-mechanics.js";
 
 const HUD_FONT = "bold 14px 'Courier New', monospace";
 const DEBUG_FONT = "12px 'Courier New', monospace";
@@ -217,6 +218,70 @@ export class CombatSystem {
       ctx.fillText(`${attack.data.name} · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, attack.targetPosition.x, attack.targetPosition.y - attack.data.diameterPx / 2 - 6);
       ctx.restore();
     } else if (attack.phase !== "warning") return;
+    else if (attack.data.category === "groundSweep" && attack.sweepBox) {
+      ctx.save();
+      ctx.strokeStyle = TELEGRAPH_COLOR;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 8]);
+      ctx.strokeRect(attack.sweepBox.x, attack.sweepBox.y, attack.sweepBox.width, attack.sweepBox.height);
+      ctx.setLineDash([]);
+      ctx.fillStyle = TELEGRAPH_COLOR;
+      ctx.font = DEBUG_FONT;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${attack.data.name} · salta · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, LOGICAL_WIDTH / 2, attack.sweepBox.y - 6);
+      ctx.restore();
+    } else if (attack.data.category === "floorSensor") {
+      renderSensorWarning(ctx, attack.data.sensorId);
+      ctx.save();
+      ctx.fillStyle = TELEGRAPH_COLOR;
+      ctx.font = DEBUG_FONT;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${attack.data.name} · centro o salto · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, LOGICAL_WIDTH / 2, 392);
+      ctx.restore();
+    } else if (attack.data.patternId === "CATODO_PULSE" && attack.projectileSpecification) {
+      const route = attack.projectileSpecification;
+      ctx.save();
+      ctx.strokeStyle = TELEGRAPH_COLOR;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([9, 6]);
+      ctx.beginPath();
+      ctx.moveTo(route.x, route.y);
+      ctx.lineTo(route.endX, route.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(route.x, route.y, 16, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = TELEGRAPH_COLOR;
+      ctx.font = DEBUG_FONT;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${attack.data.name} · salta o cúbrete · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, LOGICAL_WIDTH / 2, route.y - 22);
+      ctx.restore();
+    } else if (attack.data.patternId === "VERA_BALL" && attack.projectileSpecification) {
+      const route = attack.projectileSpecification;
+      ctx.save();
+      ctx.strokeStyle = TELEGRAPH_COLOR;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 7]);
+      ctx.beginPath();
+      ctx.moveTo(route.x, route.y);
+      ctx.lineTo(route.routeLeftX, route.y);
+      ctx.lineTo(route.routeRightX, route.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = TELEGRAPH_COLOR;
+      ctx.beginPath();
+      ctx.arc(route.routeLeftX, route.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = DEBUG_FONT;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${attack.data.name} · ida ← rebote → regreso · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, LOGICAL_WIDTH / 2, route.y - 13);
+      ctx.restore();
+    }
     else if (attack.data.kind === "melee") {
       const box = this.#enemy.currentAttackBox();
       ctx.save();
@@ -268,10 +333,17 @@ export class CombatSystem {
     for (const projectile of this.#projectiles) {
       const box = projectile.box;
       ctx.fillStyle = projectile.owner === "player" ? "#68e8ff" : PROJECTILE_FILL;
-      ctx.fillRect(box.x, box.y, box.width, box.height);
       ctx.strokeStyle = "#fff7d0";
       ctx.lineWidth = 1;
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
+      if (projectile.radius) {
+        ctx.beginPath();
+        ctx.arc(projectile.position.x, projectile.position.y, projectile.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillRect(box.x, box.y, box.width, box.height);
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+      }
     }
   }
 
@@ -414,6 +486,11 @@ export class CombatSystem {
     const attackBox = this.#enemy.activeAttackBox();
     const attack = this.#enemy.attack;
     if (!attackBox || !attack || attack.contactedTargets.has(this.player.fighterId)) return;
+    if (this.#enemy.isPlayerSafeFromAttack(this.player, attack)) return;
+    const floorY = this.#enemy.data.arenaGroundY ?? this.#enemy.data.court?.groundY;
+    if (["groundSweep", "floorSensor"].includes(attack.data.category)
+      && floorY !== undefined
+      && playerClearsGroundHazard(this.player, floorY)) return;
     const overlaps = attack.data.shape === "circle"
       ? circleOverlapsRectangle({ x: attack.targetPosition.x, y: attack.targetPosition.y, radius: attack.data.diameterPx / 2 }, this.player.hurtBox)
       : rectanglesOverlap(attackBox, this.player.hurtBox);
@@ -432,12 +509,18 @@ export class CombatSystem {
       const targetEntity = projectile.owner === "enemy" ? this.player : this.#enemy;
       const collision = projectile.update(
         dt,
-        this.#solids,
+        projectile.courtReturn ? [] : this.#solids,
         target,
         targetEntity.hurtBox,
         PROJECTILE_CLEANUP_MARGIN_PX,
       );
       if (!collision) continue;
+      const floorY = this.#enemy.data.arenaGroundY ?? this.#enemy.data.court?.groundY;
+      if (target === this.#playerCombatant && projectile.category === "lowProjectile"
+        && floorY !== undefined && playerClearsGroundHazard(this.player, floorY)) {
+        this.#emit("projectileContact", { projectileId: projectile.id, owner: projectile.owner, targetId: target.id, avoided: true });
+        continue;
+      }
       const guarded = target === this.#playerCombatant && actions.guard.held && this.player.grounded;
       const reductionFactor = target === this.#playerCombatant && this.#specialDamageFactor < 1
         ? this.#specialDamageFactor
@@ -449,6 +532,12 @@ export class CombatSystem {
   }
 
   #fireEnemyProjectile(attack) {
+    const customSpecification = this.#enemy.createProjectileSpecification(attack);
+    if (customSpecification) {
+      const spawned = this.spawnProjectile(customSpecification);
+      if (spawned) this.#emit("projectileLaunched", { projectileId: customSpecification.id, owner: "enemy", attackInstanceId: attack.id, patternId: attack.data.patternId });
+      return;
+    }
     const config = this.#enemy.data.projectile;
     const originX = this.#enemy.position.x + this.#enemy.facing * (this.#enemy.bodySize.width / 2 + config.width / 2);
     const originY = this.#enemy.position.y - this.#enemy.bodySize.height / 2;
@@ -469,6 +558,7 @@ export class CombatSystem {
       height: config.height,
       damage: attack.data.damage,
       lifetimeSec: config.lifetimeSec,
+      category: attack.data.category,
     });
     if (spawned) this.#emit("projectileLaunched", { projectileId, owner: "enemy", attackInstanceId: attack.id, patternId: attack.data.patternId });
   }
