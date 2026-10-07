@@ -127,6 +127,7 @@ export class InputController {
       visor: stateFor(ACTION.VISOR),
       pause: stateFor(ACTION.PAUSE_TOGGLE),
       debugToggle: stateFor(ACTION.DEBUG_TOGGLE),
+      restartLevel: stateFor(ACTION.RESTART_LEVEL),
     });
   }
 
@@ -220,6 +221,16 @@ export class InputController {
   }
 
   #handleStateCommand(event, actions, currentState) {
+    if (
+      actionIncludes(actions, ACTION.RESTART_LEVEL) &&
+      (currentState === STATE.PAUSED || currentState === STATE.GAME_OVER)
+    ) {
+      event.preventDefault();
+      this.#transition(STATE.MENU);
+      this.#transition(STATE.PLAYING, true);
+      return true;
+    }
+    if (actionIncludes(actions, ACTION.RESTART_LEVEL) && currentState === STATE.PLAYING) return false;
     if (actionIncludes(actions, ACTION.CONFIRM)) {
       event.preventDefault();
       if (currentState === STATE.MENU) this.#transition(STATE.PLAYING, true);

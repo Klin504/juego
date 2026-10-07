@@ -9,6 +9,11 @@ import { InputController } from "../src/input-controller.js";
 import { GameClock } from "../src/game-clock.js";
 import { StateMachine } from "../src/state-machine.js";
 import { createStates } from "../src/states.js";
+import { LEVEL_1_DATA } from "../src/level-1-data.js";
+import { loadLevel, updateLevel } from "../src/level-loader.js";
+import { CHILO_DATA, CHILO_JUMP_ATTACK } from "../src/boss-data.js";
+import { Chilo } from "../src/chilo.js";
+import { EnemyCombatant } from "../src/enemy-combatant.js";
 
 const output = document.querySelector("#results");
 const summary = document.querySelector("#summary");
@@ -37,6 +42,7 @@ function actions(overrides = {}) {
     normalAttack: { ...neutral },
     specialTap: { ...neutral },
     debugToggle: { ...neutral },
+    restartLevel: { ...neutral },
     ...overrides,
   };
 }
@@ -62,6 +68,191 @@ function phaseFixture() {
     ]),
   });
 }
+
+run("El cargador construye Nivel 1 desde datos con estado limpio", () => {
+  const level = loadLevel(LEVEL_1_DATA, "alma");
+  assert(level.data === LEVEL_1_DATA && level.data.id === "nivel-1", "no conservó datos del Nivel 1");
+  assert(level.player.position.x === 210 && level.player.position.y === 430, "aparición del estudiante incorrecta");
+  assert(level.enemy instanceof Chilo && level.enemy.hp === 80, "no creó a Chilo con 80 HP");
+  assert(level.enemy.position.x === 750 && level.enemy.position.y === 430, "aparición de Chilo incorrecta");
+  assert(level.elapsedSeconds === 0 && level.status === "en curso", "el nivel no empieza limpio");
+  assert(level.combat.projectiles.length === 0 && level.combat.playerCombatant.hp === 100, "quedaron daños/proyectiles iniciales");
+  assert(level.tutorial.stepIndex === 0 && level.tutorial.currentStep.id === "move", "el tutorial no inicia en el primer paso");
+  assert(level.data.timeLimitSec === 150 && level.data.arena.solids.length === 3, "arena o límite de tiempo incorrecto");
+  const genericEnemy = loadLevel({ ...LEVEL_1_DATA, enemyType: "enemigo-configurable" }, "diego").enemy;
+  assert(genericEnemy instanceof EnemyCombatant, "el cargador no acepta enemigos base configurados por datos");
+});
+
+run("El tutorial avanza solo con cada acción y el reinicio vuelve al primer paso", () => {
+  const level = loadLevel(LEVEL_1_DATA, "alma");
+  const tutorial = level.tutorial;
+  assert(!tutorial.update(actions({ jump: { pressed: true, held: true, released: false } }), level.player, level.enemy), "saltó el paso de movimiento");
+  assert(tutorial.update(actions({ moveX: 1, jump: { pressed: true, held: true, released: false } }), level.player, level.enemy), "no aceptó movimiento");
+  assert(tutorial.currentStep.id === "jump", "omitió el paso de salto");
+  assert(!tutorial.update(actions({ moveX: 1 }), level.player, level.enemy), "movimiento omitió el paso de salto");
+  assert(tutorial.update(actions({ jump: { pressed: true, held: true, released: false } }), level.player, level.enemy), "no aceptó salto");
+  assert(tutorial.currentStep.id === "attack", "orden de tutorial incorrecto tras salto");
+  assert(tutorial.update(actions({ normalAttack: { pressed: true, held: true, released: false } }), level.player, level.enemy), "no aceptó ataque");
+  assert(tutorial.currentStep.id === "guard", "paso de guardia fuera de orden");
+  assert(tutorial.update(actions({ guard: { pressed: false, held: true, released: false } }), level.player, level.enemy), "no aceptó guardia sostenida");
+  assert(tutorial.currentStep.id === "special", "paso de especial fuera de orden");
+  assert(tutorial.update(actions({ specialTap: { pressed: true, held: false, released: true } }), level.player, level.enemy), "no aceptó especial");
+  assert(tutorial.currentStep.id === "approach", "no llegó al paso de aproximación");
+  assert(!tutorial.update(actions(), level.player, level.enemy), "avanzó aproximación sin acercarse");
+  level.player.position.x = 500;
+  assert(tutorial.update(actions(), level.player, level.enemy) && tutorial.completed, "no avanzó al entrar en distancia de combate");
+  tutorial.reset();
+  assert(!tutorial.completed && tutorial.stepIndex === 0 && tutorial.currentStep.id === "move", "el tutorial no se reinició");
+});
+
+run("La victoria completa el nivel; la derrota usa GAME OVER; KO simultáneo gana", () => {
+  const victory = loadLevel(LEVEL_1_DATA, "alma");
+  victory.combat.enemy.applyDamage(80, { sourceId: "test", attackInstanceId: "victory", step: 1 });
+  updateLevel(victory, actions(), dt);
+  assert(victory.combat.outcome === COMBAT_OUTCOME.PLAYER_VICTORY && victory.status === "completado", "muerte de Chilo no completó el nivel");
+
+  const defeat = loadLevel(LEVEL_1_DATA, "alma");
+  defeat.combat.playerCombatant.applyDamage(100, { sourceId: "test", attackInstanceId: "defeat", step: 1 });
+  updateLevel(defeat, actions(), dt);
+  assert(defeat.combat.outcome === COMBAT_OUTCOME.PLAYER_DEFEAT && defeat.status === "derrotado", "muerte del jugador no produjo derrota");
+
+  const tie = loadLevel(LEVEL_1_DATA, "alma");
+  tie.player.position.x = 630;
+  tie.combat.enemy.applyDamage(70, { sourceId: "test", attackInstanceId: "weaken", step: 1 });
+  tie.combat.playerCombatant.applyDamage(99, { sourceId: "test", attackInstanceId: "weaken-player", step: 1 });
+  tie.combat.playerCombatant.invulnerabilityRemainingSec = 0;
+  tie.combat.spawnProjectile({ id: "tie-projectile", patternId: "test", attackInstanceId: "tie-projectile", owner: "enemy", x: 630, y: 390, velocityX: 0, velocityY: 0, width: 8, height: 8, damage: 1, lifetimeSec: 2 });
+  updateLevel(tie, actions({ normalAttack: { pressed: true, held: true, released: false } }), dt);
+  assert(tie.combat.enemy.hp === 0 && tie.combat.playerCombatant.hp === 0, "el escenario no produjo KO simultáneo");
+  assert(tie.combat.outcome === COMBAT_OUTCOME.PLAYER_VICTORY && tie.status === "completado", "el KO simultáneo no completó con victoria");
+
+  const timed = loadLevel({ ...LEVEL_1_DATA, timeLimitSec: 0 }, "alma");
+  const tutorialActions = [
+    actions({ moveX: 1 }),
+    actions({ jump: { pressed: true, held: true, released: false, bufferRemainingSeconds: 0.1 } }),
+    actions({ normalAttack: { pressed: true, held: true, released: false } }),
+    actions({ guard: { pressed: false, held: true, released: false } }),
+    actions({ specialTap: { pressed: true, held: false, released: true } }),
+  ];
+  for (const tutorialAction of tutorialActions) timed.tutorial.update(tutorialAction, timed.player, timed.enemy);
+  timed.player.position.x = 500;
+  timed.tutorial.update(actions(), timed.player, timed.enemy);
+  updateLevel(timed, actions(), dt);
+  assert(timed.combat.outcome === COMBAT_OUTCOME.PLAYER_DEFEAT && timed.status === "derrotado", "el límite de tiempo no termina el encuentro");
+});
+
+run("Recrear el Nivel 1 limpia daño, proyectiles, tutorial y resultado", () => {
+  const dirty = loadLevel(LEVEL_1_DATA, "nadia");
+  dirty.player.position.x = 550;
+  dirty.combat.playerCombatant.applyDamage(20, { sourceId: "test", attackInstanceId: "dirty", step: 1 });
+  dirty.combat.enemy.applyDamage(10, { sourceId: "test", attackInstanceId: "dirty", step: 1 });
+  dirty.combat.spawnProjectile({ id: "dirty-shot", patternId: "test", attackInstanceId: "dirty-shot", owner: "enemy", x: 500, y: 300, velocityX: 30, velocityY: 0, width: 8, height: 8, damage: 1, lifetimeSec: 2 });
+  dirty.tutorial.update(actions({ moveX: 1 }), dirty.player, dirty.enemy);
+  dirty.status = "derrotado";
+
+  const clean = loadLevel(LEVEL_1_DATA, "nadia");
+  assert(clean.player.position.x === 210 && clean.player.position.y === 430, "posición no se restauró");
+  assert(clean.combat.playerCombatant.hp === 85 && clean.combat.enemy.hp === 80, "vida no se restauró");
+  assert(clean.combat.projectiles.length === 0 && clean.combat.outcome === COMBAT_OUTCOME.IN_PROGRESS, "proyectiles o resultado residual");
+  assert(clean.tutorial.stepIndex === 0 && clean.elapsedSeconds === 0 && clean.status === "en curso", "tutorial/temporizador/estado no se restauró");
+});
+
+run("Pausa omite pasos y congela tutorial, telegráfico y ataque de Chilo", () => {
+  const level = loadLevel(LEVEL_1_DATA, "diego");
+  const tutorialBefore = JSON.stringify({ step: level.tutorial.stepIndex, hp: level.combat.playerCombatant.hp, elapsed: level.elapsedSeconds });
+  for (let frame = 0; frame < 120; frame += 1) { /* La máquina en PAUSA no llama updateLevel. */ }
+  assert(JSON.stringify({ step: level.tutorial.stepIndex, hp: level.combat.playerCombatant.hp, elapsed: level.elapsedSeconds }) === tutorialBefore, "tutorial avanzó durante pausa");
+  updateLevel(level, actions({ jump: { pressed: true, held: true, released: false } }), dt);
+  assert(level.tutorial.currentStep.id === "move", "la pausa permitió saltar pasos al reanudar");
+
+  const fighting = loadLevel(LEVEL_1_DATA, "alma");
+  fighting.enemy.setCombatReady(true);
+  fighting.player.position.x = 630;
+  fighting.combat.update(dt, actions());
+  for (let step = 0; step < 20; step += 1) fighting.combat.update(dt, actions());
+  const before = JSON.stringify(fighting.combat.snapshot);
+  for (let frame = 0; frame < 120; frame += 1) { /* La pausa no llama al paso fijo. */ }
+  assert(JSON.stringify(fighting.combat.snapshot) === before, "aviso/ataque de Chilo avanzó en pausa");
+  fighting.combat.update(dt, actions());
+  assert(fighting.combat.snapshot.enemy.currentAttack.elapsedSec > JSON.parse(before).enemy.currentAttack.elapsedSec, "no reanudó desde el mismo tick");
+  assert(fighting.combat.playerCombatant.hp === 100, "apareció daño fantasma al reanudar");
+});
+
+run("Chilo usa los tiempos/daños documentados de aletazo y salto anunciado", () => {
+  const level = loadLevel(LEVEL_1_DATA, "alma");
+  level.enemy.setCombatReady(true);
+  level.player.position.x = 630;
+  const opening = level.combat.update(dt, actions());
+  assert(level.enemy.attack?.data.patternId === "CHILO_WING" && level.enemy.attack.phase === "warning", "Chilo no inició con CHILO_WING en aviso");
+  assert(opening.some((event) => event.kind === "warningStarted"), "no emitió aviso inicial");
+  assert(CHILO_DATA.maxHp === 80 && CHILO_DATA.interAttackDelaySec === 2.4, "vida/ritmo no coincide con el diseño");
+  assert(level.enemy.attack.data.startupSec === 1.15 && level.enemy.attack.data.activeSec === 0.18 && level.enemy.attack.data.recoverySec === 0.65 && level.enemy.attack.data.damage === 12, "tiempos/daño de aletazo incorrectos");
+  for (let step = 0; step < 68; step += 1) level.combat.update(dt, actions());
+  assert(level.enemy.attack.phase === "warning", "el aviso del aletazo terminó antes de 1.15 s");
+  const wingEvents = level.combat.update(dt, actions());
+  assert(level.enemy.attack.phase === "active", "el aletazo no entró en activo a 1.15 s");
+  assert(level.combat.playerCombatant.hp === 88, `aletazo debía causar 12, HP=${level.combat.playerCombatant.hp}`);
+  assert(wingEvents.filter((event) => event.kind === "damageApplied" && event.targetId === "alma").length === 1, "el aletazo duplicó daño");
+  assert(level.enemy.attack.data.width === 125 && level.enemy.attack.data.offsetY === -95 && level.enemy.attack.data.height === 90, "zona del aletazo no representa x125/y335…425");
+
+  const guardedWing = loadLevel(LEVEL_1_DATA, "alma");
+  guardedWing.enemy.setCombatReady(true);
+  guardedWing.player.position.x = 630;
+  guardedWing.player.grounded = true;
+  guardedWing.combat.update(dt, actions({ guard: { pressed: false, held: true, released: false } }));
+  for (let step = 0; step < 69; step += 1) guardedWing.combat.update(dt, actions({ guard: { pressed: false, held: true, released: false } }));
+  assert(guardedWing.combat.playerCombatant.hp === 96, `S debía reducir el aletazo de 12 a 4, HP=${guardedWing.combat.playerCombatant.hp}`);
+
+  let iterations = 0;
+  while (level.enemy.attack?.data.patternId !== "CHILO_JUMP" && iterations < 500) {
+    level.combat.update(dt, actions());
+    iterations += 1;
+  }
+  assert(level.enemy.attack?.data.patternId === "CHILO_JUMP", "Chilo no alternó a salto");
+  const jumpTarget = { ...level.enemy.attack.targetPosition };
+  assert(level.enemy.attack.data.startupSec === 1 && level.enemy.attack.data.activeSec === 0.25 && level.enemy.attack.data.recoverySec === 0.85 && level.enemy.attack.data.damage === 16 && level.enemy.attack.data.diameterPx === 100, "datos del salto no coinciden con el diseño");
+  assert(Math.abs(jumpTarget.x - level.enemy.position.x) <= 280, "destino del salto excedió 280 px");
+  level.player.position.x = 500;
+  for (let step = 0; step < 60; step += 1) level.combat.update(dt, actions());
+  assert(level.enemy.attack?.phase === "active", "el salto no aterrizó tras 1 s de aviso");
+  assert(level.enemy.attack.targetPosition.x === jumpTarget.x && level.enemy.attack.targetPosition.y === jumpTarget.y, "el destino cambió con el movimiento del jugador");
+  assert(level.combat.playerCombatant.hp === 88, "el salto dañó durante arco o fuera de la sombra fijada");
+
+  const jumpHit = loadLevel(LEVEL_1_DATA, "alma");
+  jumpHit.enemy.setCombatReady(true);
+  jumpHit.player.position.x = 630;
+  jumpHit.player.grounded = true;
+  jumpHit.combat.update(dt, actions());
+  while (jumpHit.enemy.attack && jumpHit.enemy.attack.data.patternId === "CHILO_WING") jumpHit.combat.update(dt, actions());
+  let jumpWait = 0;
+  while (jumpHit.enemy.attack?.data.patternId !== CHILO_JUMP_ATTACK.patternId && jumpWait < 600) {
+    jumpHit.combat.update(dt, actions());
+    jumpWait += 1;
+  }
+  assert(jumpHit.enemy.attack?.data.patternId === "CHILO_JUMP", "no encontró salto para impacto");
+  jumpHit.player.position.x = jumpHit.enemy.attack.targetPosition.x;
+  while (jumpHit.enemy.attack?.phase === "warning") jumpHit.combat.update(dt, actions({ guard: { pressed: false, held: true, released: false } }));
+  assert(jumpHit.combat.playerCombatant.hp === 72, `salto debía causar 16 al aterrizar, HP=${jumpHit.combat.playerCombatant.hp}`);
+});
+
+run("Alma, Diego y Nadia pueden golpear a Chilo y recorren ambos patrones", () => {
+  const expected = { alma: { hp: 100, damage: 10 }, diego: { hp: 120, damage: 12 }, nadia: { hp: 85, damage: 8 } };
+  for (const [fighterId, stats] of Object.entries(expected)) {
+    const level = loadLevel(LEVEL_1_DATA, fighterId);
+    level.player.position.x = 630;
+    level.enemy.setCombatReady(true);
+    assert(level.combat.playerCombatant.maxHp === stats.hp, `${fighterId}: vida inicial incorrecta`);
+    level.combat.update(dt, actions({ normalAttack: { pressed: true, held: true, released: false } }));
+    assert(level.enemy.hp === 80 - stats.damage, `${fighterId}: ataque normal no aplicó su daño`);
+    assert(level.enemy.attack?.data.patternId === "CHILO_WING", `${fighterId}: Chilo no inició con aletazo`);
+    let steps = 0;
+    while (level.enemy.attack?.data.patternId !== "CHILO_JUMP" && steps < 500) {
+      level.combat.update(dt, actions());
+      steps += 1;
+    }
+    assert(level.enemy.attack?.data.patternId === "CHILO_JUMP", `${fighterId}: Chilo no llegó al salto`);
+  }
+});
 
 run("Un ataque daña una vez; mantener atacar no lo repite", () => {
   const { fight } = makeFight();
@@ -165,7 +356,19 @@ run("KO simultáneo da victoria; derrota transita a GAME OVER; derrota del enemi
   assert(loss.fight.outcome === COMBAT_OUTCOME.PLAYER_DEFEAT, "no expuso derrota del jugador");
 
   const clock = new GameClock();
-  const fakeInput = { snapshotForStep: () => actions(), clear() {} };
+  let autoStep = 0;
+  const fakeInput = {
+    snapshotForStep: () => {
+      const step = autoStep++;
+      if (step === 0) return actions({ moveX: 1 });
+      if (step === 1) return actions({ jump: { pressed: true, held: true, released: false, bufferRemainingSeconds: 0.1 } });
+      if (step === 2) return actions({ normalAttack: { pressed: true, held: true, released: false } });
+      if (step === 3) return actions({ guard: { pressed: false, held: true, released: false } });
+      if (step === 4) return actions({ specialTap: { pressed: true, held: false, released: true } });
+      return actions({ moveX: 1 });
+    },
+    clear() {},
+  };
   let machine;
   const states = createStates(clock, fakeInput, () => machine.transition(STATE.GAME_OVER));
   const allowed = new Map([[STATE.MENU, new Set([STATE.PLAYING])], [STATE.PLAYING, new Set([STATE.PAUSED, STATE.GAME_OVER])], [STATE.PAUSED, new Set([STATE.PLAYING, STATE.MENU])], [STATE.GAME_OVER, new Set([STATE.MENU])]]);
@@ -231,6 +434,35 @@ run("Pérdida de foco limpia acciones held y pressed", () => {
   const after = input.snapshotForStep();
   assert(mockMachine.currentName === STATE.PAUSED, "no pausó al perder foco");
   assert(after.moveX === 0 && !after.moveRight.held && !after.normalAttack.held && !after.normalAttack.pressed, "quedaron acciones retenidas o pulsadas");
+  input.unmount();
+});
+
+run("T reinicia desde pausa y GAME OVER con transiciones permitidas", () => {
+  const allowed = new Map([
+    [STATE.MENU, new Set([STATE.PLAYING])],
+    [STATE.PLAYING, new Set([STATE.PAUSED, STATE.GAME_OVER])],
+    [STATE.PAUSED, new Set([STATE.PLAYING, STATE.MENU])],
+    [STATE.GAME_OVER, new Set([STATE.MENU])],
+  ]);
+  const machine = {
+    currentName: STATE.PAUSED,
+    transitions: [],
+    transition(next) {
+      if (!allowed.get(this.currentName)?.has(next)) return false;
+      this.transitions.push([this.currentName, next]);
+      this.currentName = next;
+      return true;
+    },
+  };
+  const input = new InputController();
+  input.connect({ stateMachine: machine, clock: { reset() {} }, loop: { resetTiming() {} } });
+  input.mount();
+  window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyT", bubbles: true }));
+  assert(machine.currentName === STATE.PLAYING && machine.transitions[0][0] === STATE.PAUSED && machine.transitions[1][0] === STATE.MENU, "T no reinició desde pausa por las transiciones existentes");
+  window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyT", bubbles: true }));
+  machine.currentName = STATE.GAME_OVER;
+  window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyT", bubbles: true }));
+  assert(machine.currentName === STATE.PLAYING && machine.transitions.slice(-2)[0][0] === STATE.GAME_OVER, "T no reinició desde GAME OVER");
   input.unmount();
 });
 

@@ -28,7 +28,7 @@ export class EnemyCombatant {
     this.velocity = { x: 0, y: 0 };
     this.state = ENEMY_STATE.IDLE;
     this.attack = null;
-    this.#interAttackRemainingSec = this.#phaseData().interAttackDelaySec ?? data.interAttackDelaySec;
+    this.#interAttackRemainingSec = data.initialDelaySec ?? this.#phaseData().interAttackDelaySec ?? data.interAttackDelaySec;
     this.#combatant = new Combatant({ id: data.id, maxHp: data.maxHp });
   }
 
@@ -60,17 +60,22 @@ export class EnemyCombatant {
 
     this.facing = target.position.x < this.position.x ? -1 : 1;
     if (!this.attack) {
-      this.#interAttackRemainingSec -= dt;
-      if (this.#interAttackRemainingSec <= 0) this.#beginAttack(target);
+      if (this.canStartAttack(target)) {
+        this.#interAttackRemainingSec -= dt;
+        if (this.#interAttackRemainingSec <= 0) this.#beginAttack(target);
+      }
     } else {
       const before = this.attack.phase;
       this.attack.elapsedSec += dt;
       this.#setPhase();
+      this.onAttackAdvanced(this.attack, dt, before);
       if (before === "warning" && this.attack.phase === "active" && this.attack.data.kind === "projectile") {
         fired.push({ kind: "patternProjectile", owner: "enemy", target, attack: this.attack });
       }
       if (this.attack.phase === "finished") {
+        const finishedAttack = this.attack;
         this.attack = null;
+        this.onAttackFinished(finishedAttack);
         if (!this.#advancePhaseIfPending()) {
           this.#interAttackRemainingSec = this.#phaseData().interAttackDelaySec ?? this.data.interAttackDelaySec;
         }
@@ -89,8 +94,17 @@ export class EnemyCombatant {
   }
 
   currentAttackBox() {
-    if (!this.attack || this.attack.data.kind !== "melee") return null;
+    if (!this.attack || !["melee", "jump"].includes(this.attack.data.kind)) return null;
     const attack = this.attack.data;
+    if (attack.kind === "jump") {
+      const diameter = attack.diameterPx;
+      return {
+        x: this.attack.targetPosition.x - diameter / 2,
+        y: this.attack.targetPosition.y - diameter / 2,
+        width: diameter,
+        height: diameter,
+      };
+    }
     const body = this.bodyBox;
     return {
       x: this.attack.facing > 0 ? body.x + body.width + attack.offsetX : body.x - attack.offsetX - attack.width,
@@ -114,6 +128,11 @@ export class EnemyCombatant {
     }
     return event;
   }
+
+  canStartAttack() { return true; }
+  onAttackStarted() {}
+  onAttackAdvanced() {}
+  onAttackFinished() {}
 
   drainEvents() {
     const events = [...this.#combatant.drainEvents(), ...this.#domainEvents];
@@ -146,7 +165,7 @@ export class EnemyCombatant {
     ctx.textBaseline = "bottom";
     const attackLabel = this.attack
       ? `${this.attack.data.name} · ${this.attack.phase}`
-      : `Muñeco · ${this.state}`;
+      : `${this.data.name ?? "Muñeco"} · ${this.state}`;
     ctx.fillText(attackLabel, this.position.x, body.y - 7);
   }
 
@@ -164,6 +183,7 @@ export class EnemyCombatant {
       contactedTargets: new Set(),
     };
     this.#setPhase();
+    this.onAttackStarted(this.attack, target);
   }
 
   #setPhase() {

@@ -1,11 +1,8 @@
 import { LOGICAL_HEIGHT, LOGICAL_WIDTH, STATE } from "./constants.js";
 import { TEST_FIGHTER_ID } from "./physics-config.js";
-import { FighterEntity } from "./fighter-entity.js";
-import { PhysicsWorld } from "./physics.js";
-import { TestRoom, TEST_ROOM_START } from "./test-room.js";
-import { CombatSystem } from "./combat-system.js";
 import { COMBAT_OUTCOME } from "./combat-config.js";
-import { TRAINING_DUMMY_DATA } from "./combat-data.js";
+import { LEVEL_1_DATA } from "./level-1-data.js";
+import { loadLevel, renderLevelBackground, updateLevel } from "./level-loader.js";
 
 const COLORS = Object.freeze({ background: "#101622", panel: "#1d2939", border: "#47d7c8", text: "#f2f4f8", muted: "#b6c2d2", accent: "#ffca6a" });
 const PANEL = Object.freeze({ x: 104, y: 92, width: 752, height: 356 });
@@ -47,46 +44,65 @@ function drawScreen(ctx, title, lines, elapsedSeconds = 0) {
 export function createStates(clock, input, transitionToGameOver) {
   const idle = () => {};
   const state = (render, update = idle, enter = idle, exit = idle) => ({ enter, exit, update, render });
-  const room = new TestRoom();
-  let player = new FighterEntity({ fighterId: TEST_FIGHTER_ID, ...TEST_ROOM_START });
-  let combat = new CombatSystem({ player, enemyData: TRAINING_DUMMY_DATA, solids: room.solids });
-  const physics = new PhysicsWorld();
-  const physicsSolids = [...room.solids, combat.enemy.bodyBox];
+  let level = loadLevel(LEVEL_1_DATA, TEST_FIGHTER_ID);
   let debugEnabled = false;
+  const resetLevel = () => {
+    level = loadLevel(LEVEL_1_DATA, TEST_FIGHTER_ID);
+    clock.reset();
+    debugEnabled = false;
+  };
 
   return new Map([
-    [STATE.MENU, state((ctx) => drawScreen(ctx, STATE.MENU, ["Sistema de combate compartido · Fase 2.3", "Enter: iniciar · estudiante: Alma", "A/D o flechas mover · W/↑/Espacio saltar · S cubrir", "R atacar · Shift especial · P/Escape pausar · F2 cajas"]), idle, () => {
-      player = new FighterEntity({ fighterId: TEST_FIGHTER_ID, ...TEST_ROOM_START });
-      combat = new CombatSystem({ player, enemyData: TRAINING_DUMMY_DATA, solids: room.solids });
-      debugEnabled = false;
-    })],
+    [STATE.MENU, state((ctx) => drawScreen(ctx, STATE.MENU, ["Nivel 1 · La primera marca", "Practica los controles con Chilo y obtén la marca inicial", "Chilo: «Si una victoria abre el paso, luchemos con cuidado»", "Enter: iniciar · estudiante: Alma", "A/D mover · W saltar · R ataque · S cubrir", "Shift especial · P/Escape pausa · T reiniciar · F2 cajas"]), idle, resetLevel)],
     [STATE.PLAYING, state((ctx) => {
-      room.render(ctx, false);
-      combat.renderTelegraphs(ctx);
-      player.render(ctx, debugEnabled, combat.playerCombatant);
-      combat.enemy.render(ctx);
-      combat.renderProjectiles(ctx);
-      combat.renderHud(ctx);
-      combat.renderSpecialStatus(ctx);
-      if (debugEnabled) combat.renderDebug(ctx);
+      renderLevelBackground(ctx, level.data);
+      level.combat.renderTelegraphs(ctx);
+      level.player.render(ctx, debugEnabled, level.combat.playerCombatant);
+      level.enemy.render(ctx);
+      level.combat.renderProjectiles(ctx);
+      level.combat.renderHud(ctx);
+      level.combat.renderSpecialStatus(ctx);
+      level.tutorial.render(ctx);
+      if (debugEnabled) level.combat.renderDebug(ctx);
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillStyle = COLORS.text;
       ctx.font = "14px 'Courier New', monospace";
-      ctx.fillText(`Tiempo ${formatTime(clock.elapsedSeconds)} · P/Escape pausa · F2 depuración`, 24, 48);
+      const remaining = Math.max(0, level.data.timeLimitSec - level.elapsedSeconds);
+      ctx.fillText(`${level.data.name} · ${formatTime(remaining)} · P/Escape pausa · T reiniciar · F2 depuración`, 24, 48);
+      if (level.status === "completado") {
+        ctx.fillStyle = "rgba(10, 17, 27, 0.9)";
+        ctx.fillRect(PANEL.x, 190, PANEL.width, 150);
+        ctx.strokeStyle = COLORS.border;
+        ctx.lineWidth = PANEL_BORDER_WIDTH;
+        ctx.strokeRect(PANEL.x + 2, 192, PANEL.width - 4, 146);
+        ctx.textAlign = "center";
+        ctx.fillStyle = COLORS.accent;
+        ctx.font = "bold 28px 'Courier New', monospace";
+        ctx.fillText("NIVEL COMPLETADO", LOGICAL_WIDTH / 2, 235);
+        ctx.fillStyle = COLORS.text;
+        ctx.font = "18px 'Courier New', monospace";
+        ctx.fillText("Chilo derrotado · T: repetir el nivel", LOGICAL_WIDTH / 2, 285);
+      }
     }, (dt) => {
       const actions = input.snapshotForStep();
       if (actions.debugToggle.pressed) debugEnabled = !debugEnabled;
-      physicsSolids[physicsSolids.length - 1] = combat.enemy.bodyBox;
-      physics.update(player, actions, dt, physicsSolids);
-      combat.update(dt, actions);
+      if (actions.restartLevel.pressed) {
+        resetLevel();
+        input.clear();
+        return;
+      }
+      if (level.status === "completado") return;
+      updateLevel(level, actions, dt);
       clock.update(dt);
-      if (combat.outcome === COMBAT_OUTCOME.PLAYER_DEFEAT) {
+      if (level.combat.outcome === COMBAT_OUTCOME.PLAYER_VICTORY) {
+        level.status = "completado";
+      } else if (level.combat.outcome === COMBAT_OUTCOME.PLAYER_DEFEAT) {
         input.clear();
         transitionToGameOver();
       }
     })],
-    [STATE.PAUSED, state((ctx) => drawScreen(ctx, STATE.PAUSED, ["El reloj está detenido.", "P o Escape: reanudar · M: volver al menú"], clock.elapsedSeconds))],
-    [STATE.GAME_OVER, state((ctx) => drawScreen(ctx, STATE.GAME_OVER, ["Demostración terminada.", "Enter: volver al menú"], clock.elapsedSeconds))],
+    [STATE.PAUSED, state((ctx) => drawScreen(ctx, STATE.PAUSED, ["El nivel y el tutorial están detenidos.", "P/Escape: reanudar · T: reiniciar · M: menú"], clock.elapsedSeconds))],
+    [STATE.GAME_OVER, state((ctx) => drawScreen(ctx, STATE.GAME_OVER, ["Intento terminado.", "T: repetir el nivel · Enter: menú"], clock.elapsedSeconds))],
   ]);
 }

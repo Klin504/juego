@@ -41,6 +41,14 @@ function phaseOf(attack) {
   return "finished";
 }
 
+function circleOverlapsRectangle(circle, rectangle) {
+  const nearestX = Math.max(rectangle.x, Math.min(circle.x, rectangle.x + rectangle.width));
+  const nearestY = Math.max(rectangle.y, Math.min(circle.y, rectangle.y + rectangle.height));
+  const dx = circle.x - nearestX;
+  const dy = circle.y - nearestY;
+  return dx * dx + dy * dy < circle.radius * circle.radius;
+}
+
 function drawBox(ctx, box, color, label) {
   if (!box) return;
   ctx.save();
@@ -71,10 +79,10 @@ export class CombatSystem {
   #events = [];
   #outcome = COMBAT_OUTCOME.IN_PROGRESS;
 
-  constructor({ player, enemyData = TRAINING_DUMMY_DATA, solids }) {
+  constructor({ player, enemyData = TRAINING_DUMMY_DATA, enemyFactory = (data) => new EnemyCombatant(data), solids }) {
     this.player = player;
     this.#playerCombatant = createPlayerCombatant(player.fighterId);
-    this.#enemy = new EnemyCombatant(enemyData);
+    this.#enemy = enemyFactory(enemyData);
     this.#solids = solids;
     this.playerAttackDamage = PLAYER_ATTACKS.normal.damageByFighter[player.fighterId];
   }
@@ -171,6 +179,16 @@ export class CombatSystem {
     }
   }
 
+  finishForTimeout() {
+    if (this.#outcome !== COMBAT_OUTCOME.IN_PROGRESS) return this.#outcome;
+    this.#step += 1;
+    this.#events = [];
+    if (this.#enemy.hp <= 0) this.#outcome = COMBAT_OUTCOME.PLAYER_VICTORY;
+    else this.#outcome = COMBAT_OUTCOME.PLAYER_DEFEAT;
+    this.#emit("combatFinished", { outcome: this.#outcome, reason: "time-limit" });
+    return this.#outcome;
+  }
+
   spawnProjectile(specification) {
     if (this.#projectiles.length >= MAX_ACTIVE_PROJECTILES) return false;
     this.#projectiles.push(new Projectile(specification));
@@ -179,8 +197,27 @@ export class CombatSystem {
 
   renderTelegraphs(ctx) {
     const attack = this.#enemy.attack;
-    if (!attack || attack.phase !== "warning") return;
-    if (attack.data.kind === "melee") {
+    if (!attack || !["warning", "active"].includes(attack.phase)) return;
+    if (attack.data.kind === "jump") {
+      ctx.save();
+      // PROVISIONAL: relleno del impacto al aterrizar, distinto del aviso.
+      ctx.fillStyle = attack.phase === "active" ? "rgba(255, 120, 82, 0.24)" : "rgba(255, 226, 148, 0.12)";
+      ctx.strokeStyle = TELEGRAPH_COLOR;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(attack.targetPosition.x, attack.targetPosition.y, attack.data.diameterPx / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.setLineDash([7, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = TELEGRAPH_COLOR;
+      ctx.font = DEBUG_FONT;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${attack.data.name} · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, attack.targetPosition.x, attack.targetPosition.y - attack.data.diameterPx / 2 - 6);
+      ctx.restore();
+    } else if (attack.phase !== "warning") return;
+    else if (attack.data.kind === "melee") {
       const box = this.#enemy.currentAttackBox();
       ctx.save();
       ctx.strokeStyle = TELEGRAPH_COLOR;
@@ -203,7 +240,7 @@ export class CombatSystem {
 
   renderHud(ctx) {
     this.#drawHealthBar(ctx, PLAYER_BAR_X, this.player.fighterId.toUpperCase(), this.#playerCombatant.hp, this.#playerCombatant.maxHp, PLAYER_HEALTH_COLOR, "left");
-    this.#drawHealthBar(ctx, ENEMY_BAR_X, "MUÑECO", this.#enemy.hp, this.#enemy.maxHp, ENEMY_HEALTH_COLOR, "right");
+    this.#drawHealthBar(ctx, ENEMY_BAR_X, (this.#enemy.data.name ?? "MUÑECO").toUpperCase(), this.#enemy.hp, this.#enemy.maxHp, ENEMY_HEALTH_COLOR, "right");
   }
 
   renderDebug(ctx) {
@@ -377,9 +414,12 @@ export class CombatSystem {
     const attackBox = this.#enemy.activeAttackBox();
     const attack = this.#enemy.attack;
     if (!attackBox || !attack || attack.contactedTargets.has(this.player.fighterId)) return;
-    if (!rectanglesOverlap(attackBox, this.player.hurtBox)) return;
+    const overlaps = attack.data.shape === "circle"
+      ? circleOverlapsRectangle({ x: attack.targetPosition.x, y: attack.targetPosition.y, radius: attack.data.diameterPx / 2 }, this.player.hurtBox)
+      : rectanglesOverlap(attackBox, this.player.hurtBox);
+    if (!overlaps) return;
     attack.contactedTargets.add(this.player.fighterId);
-    const frontal = actions.guard.held && this.player.grounded && this.player.facing === Math.sign(this.#enemy.position.x - this.player.position.x);
+    const frontal = attack.data.category === "frontal" && actions.guard.held && this.player.grounded && this.player.facing === Math.sign(this.#enemy.position.x - this.player.position.x);
     const reductionFactor = this.#specialDamageFactor < 1
       ? this.#specialDamageFactor
       : frontal ? GUARD_DAMAGE_FACTOR : 1;
