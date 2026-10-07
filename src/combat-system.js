@@ -21,6 +21,7 @@ import { orientedAttackBox, rectanglesOverlap } from "./attack-geometry.js";
 import { EnemyCombatant } from "./enemy-combatant.js";
 import { Projectile } from "./projectile.js";
 import { playerClearsGroundHazard, renderSensorWarning } from "./laboratory-mechanics.js";
+import { renderFinalSweepWarning } from "./library-mechanics.js";
 
 const HUD_FONT = "bold 14px 'Courier New', monospace";
 const DEBUG_FONT = "12px 'Courier New', monospace";
@@ -232,13 +233,31 @@ export class CombatSystem {
       ctx.fillText(`${attack.data.name} · salta · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, LOGICAL_WIDTH / 2, attack.sweepBox.y - 6);
       ctx.restore();
     } else if (attack.data.category === "floorSensor") {
-      renderSensorWarning(ctx, attack.data.sensorId);
+      renderSensorWarning(ctx, attack.sensorId ?? attack.data.sensorId);
       ctx.save();
       ctx.fillStyle = TELEGRAPH_COLOR;
       ctx.font = DEBUG_FONT;
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.fillText(`${attack.data.name} · centro o salto · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, LOGICAL_WIDTH / 2, 392);
+      ctx.restore();
+    } else if (attack.data.category === "fullFloorSweep") {
+      renderFinalSweepWarning(ctx, attack.safeZone, Math.max(0, attack.data.startupSec - attack.elapsedSec));
+    } else if (attack.data.category === "frontal") {
+      const box = this.#enemy.currentAttackBox();
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 176, 77, 0.18)";
+      ctx.fillRect(box.x, box.y, box.width, box.height);
+      ctx.strokeStyle = TELEGRAPH_COLOR;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 5]);
+      ctx.strokeRect(box.x, box.y, box.width, box.height);
+      ctx.setLineDash([]);
+      ctx.fillStyle = TELEGRAPH_COLOR;
+      ctx.font = DEBUG_FONT;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${attack.data.name} · retrocede o cubre · ${Math.max(0, attack.data.startupSec - attack.elapsedSec).toFixed(1)} s`, LOGICAL_WIDTH / 2, box.y - 5);
       ctx.restore();
     } else if (attack.data.patternId === "CATODO_PULSE" && attack.projectileSpecification) {
       const route = attack.projectileSpecification;
@@ -491,9 +510,9 @@ export class CombatSystem {
     if (["groundSweep", "floorSensor"].includes(attack.data.category)
       && floorY !== undefined
       && playerClearsGroundHazard(this.player, floorY)) return;
-    const overlaps = attack.data.shape === "circle"
+    const overlaps = attack.data.category === "fullFloorSweep" || (attack.data.shape === "circle"
       ? circleOverlapsRectangle({ x: attack.targetPosition.x, y: attack.targetPosition.y, radius: attack.data.diameterPx / 2 }, this.player.hurtBox)
-      : rectanglesOverlap(attackBox, this.player.hurtBox);
+      : rectanglesOverlap(attackBox, this.player.hurtBox));
     if (!overlaps) return;
     attack.contactedTargets.add(this.player.fighterId);
     const frontal = attack.data.category === "frontal" && actions.guard.held && this.player.grounded && this.player.facing === Math.sign(this.#enemy.position.x - this.player.position.x);

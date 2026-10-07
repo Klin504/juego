@@ -136,6 +136,7 @@ export class EnemyCombatant {
   onAttackStarted() {}
   onAttackAdvanced() {}
   onAttackFinished() {}
+  onPhaseChanged() {}
 
   drainEvents() {
     const events = [...this.#combatant.drainEvents(), ...this.#domainEvents];
@@ -214,6 +215,7 @@ export class EnemyCombatant {
       phaseIndex: this.#phaseIndex,
       hp: this.hp,
     });
+    this.onPhaseChanged(this.#phaseIndex, this.hp);
     return true;
   }
 }

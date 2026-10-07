@@ -147,9 +147,9 @@ export class InputController {
     }
     if (event.repeat || this.#heldCodes.has(code) || this.#commandHeldCodes.has(code)) return;
 
-    if (["Digit2", "Digit3"].includes(code) && this.#stateMachine.currentName === STATE.SELECT_FIGHTER) {
+    if (["Digit2", "Digit3", "Digit4"].includes(code) && this.#stateMachine.currentName === STATE.SELECT_FIGHTER) {
       event.preventDefault();
-      const action = code === "Digit2" ? ACTION.LEVEL_TWO_HARNESS : ACTION.LEVEL_THREE_HARNESS;
+      const action = ({ Digit2: ACTION.LEVEL_TWO_HARNESS, Digit3: ACTION.LEVEL_THREE_HARNESS, Digit4: ACTION.LEVEL_FOUR_HARNESS })[code];
       this.#commands.handle?.(action, STATE.SELECT_FIGHTER, (next, resetClock = false) => this.#transition(next, resetClock));
       this.#commandHeldCodes.add(code);
       return;

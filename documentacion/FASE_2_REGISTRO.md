@@ -30,7 +30,7 @@ Este registro conserva los entregables funcionales de la fase 2 por subfase. Una
 
 `src/physics-config.js` centraliza los datos del cuerpo, velocidades y movimiento; `src/fighter-entity.js` representa al estudiante por ancla de pies; `src/physics.js` actualiza velocidades y resuelve colisiones AABB por ejes, con límite de caída y corte de salto al soltar; `src/test-room.js` aporta suelo, paredes, techo y plataformas temporales. El estado JUGANDO ejecuta la física en el paso fijo ya existente; pausa y reloj se siguen rigiendo por el núcleo 2.1.
 
-**Valores provisionales:** aceleración horizontal 2000 px/s², fricción de suelo 2400 px/s², control aéreo 70 %, caída máxima 900 px/s, gravedad 1200 px/s², impulso inicial −600 px/s, factor de corte al soltar 0.5 y geometría de plataformas/sala. Los tres primeros y la caída máxima proceden de la decisión aprobada para 2.2; gravedad y salto conservan la propuesta ajustable de 1.3. El buffer de 100 ms procede del contrato 1.2; epsilon de colisión es tolerancia técnica. Velocidad máxima por personaje: Alma 240, Diego 204 y Nadia 288 px/s.
+**Valores:** inventario consolidado al final de este registro.
 
 **Verificación observada:** `node --check` pasó en los módulos ES de `src/`. La página local arrancó y recorrió MENÚ → JUGANDO → PAUSA → JUGANDO → GAME OVER → MENÚ → JUGANDO → PAUSA → MENÚ mediante Enter/P/Escape/G/M, sin errores de consola. Se vio la sala con suelo/plataformas/personaje y se pulsaron movimiento/salto y F2. Se provocó G desde MENÚ y la consola mostró el rechazo esperado `MENÚ → GAME OVER`. Durante una suspensión prolongada del navegador de prueba (aprox. 1437 s) apareció el aviso esperado de descarte al superar cinco pasos; no fue una simulación de tiempo realista. No hubo errores registrados. La API de captura visual no permite medir con precisión desplazamiento, altura máxima o aterrizajes.
 
@@ -59,7 +59,7 @@ Vida, hitboxes/hurtboxes, ataques, invulnerabilidad, defensa, eventos, proyectil
 
 **Diferencias y alcance documental:** el plan da prioridad al jugador en KO simultáneo; implementado como resultado “jugador vencedor” y no como estado/pantalla VICTORIA, que queda para 2.5. La transición de fase genérica se probó con datos de fixture, sin patrones reales de NULL. No se avanzó a 2.4.
 
-**Valores PROVISIONALES en `combat-config.js`:** startup R=0; alto 44 px y offset vertical −66 px de su hitbox; startup 0 en los especiales, ventana activa de un paso para pulso/carga y duración de vuelo como ventana activa del volley; dimensiones/offset vertical de pulso y carga; duración visual de 0,12 s del estado herido enemigo; opacidad 0,38 e intervalo de parpadeo 0,08 s; daño 8, startup 0,6 s, activo de un paso, recuperación 0,5 s, caja 18×18 px, velocidad 260 px/s y vida 4 s del orbe; máximo de seis proyectiles y margen de culling 40 px; tamaño 12×12 px, dispersión 12 px y velocidad 260 px/s de cada nota de Nadia (su vida se deriva de alcance/velocidad). Los perfiles completos de Chilo, Vera, CÁTODO-3 y NULL, incluidos todos sus patrones, quedan para integrar con sus niveles; no se modificó el bucle, reloj ni máquina de estados.
+**Valores:** inventario consolidado al final de este registro.
 
 ## 2.4 — Nivel 1: Chilo y tutorial
 
@@ -86,7 +86,7 @@ Vida, hitboxes/hurtboxes, ataques, invulnerabilidad, defensa, eventos, proyectil
 
 **Diferencias respecto al diseño:** las fuentes solo fijan de forma explícita que el nivel enseña distancia y salto y que el primer aletazo sirve de tutorial; no definen el guion paso a paso. Se implementó el orden adicional mover → saltar → atacar → guardia → especial solicitado en este encargo y el paso de aproximación para el umbral de 250 px. Sus avisos se consideran provisionales. La defensa S se restringió a ataques de categoría frontal: la prueba detectó que el sistema compartido también mitigaba por error el aterrizaje de Chilo; se corrigió en `combat-system.js` y se repitió la suite. La entrada `KeyT` y el camino de reinicio son controles de arnés, no flujo de campaña de 2.5. No se avanzó a 2.5.
 
-**Valores/textos PROVISIONALES de esta entrega:** altura visual del arco de Chilo 110 px; duración visual del estado herido 0,12 s; ubicación/tamaño/paleta del panel tutorial; texto exacto y orden extendido de los pasos (en particular ataque, guardia, especial y aproximación; el diseño solo obliga a enseñar distancia/salto); colores y rectángulos de autos, palmeras, fachada, conos y pavimento; paleta/estilo de los bloques de suelo; color/opacidad de sombra y relleno de impacto; marcador rectangular de Chilo hasta tener sprite. La arena de 960×540, suelo y límites, spawns, 80 HP, 150 s, 250 px de activación, 280 px de alcance máximo, 100 px de sombra, tiempos/daños de ataques y reducción de guardia siguen los contratos iniciales, cuyos balances son revisables con juego real.
+**Valores/textos:** inventario consolidado al final de este registro.
 
 ## 2.5 — Reglas y flujo de campaña
 
@@ -114,7 +114,7 @@ El resultado de combate vencedor (incluido KO simultáneo) abre VICTORIA. Si exi
 
 **Diferencias y límites respecto a las fuentes:** `DOCUMENTACION.md` y el contrato 1.2 piden guardar localmente récords de campañas terminadas; por eso se guarda sólo el récord y no el estado de campaña, conforme al alcance del prompt. Sólo está configurado el Nivel 1; el texto de cierre y reinicio desde esa pantalla son provisionales hasta integrar los niveles 2–4, sin saltos de capítulo. El contrato 1.4 pide confirmación antes de reiniciar o abandonar desde PAUSA; ambas confirmaciones se implementaron con teclado. El selector usa tarjetas Canvas en lugar de controles DOM con foco semántico, límite que queda pendiente de la revisión de accesibilidad/pantallas. El plan describe invocar perfiles; se leyeron pero no se delegó su ejecución en esta corrida, así que el protocolo de agentes queda pendiente de esa validación.
 
-**Valores/textos PROVISIONALES:** texto «Campaña provisional completada: solo está disponible el Nivel 1»; colores, dimensiones y disposición de tarjetas/panel Canvas; texto breve de ayuda del menú y de Game Over como representación provisional de la pantalla completa. Los tres intentos, cuatro marcas, selección de los tres estudiantes, orden narrativo, fórmula de puntos, criterios de reinicio/abandono y récord local vienen del diseño. No se crean aún niveles 2–4, récord de campaña con datos reales de puntuación de capítulos futuros, ni persistencia de campaña activa.
+**Valores/textos:** inventario consolidado al final de este registro. El cierre de campaña ya se completó en 2.8; la nota histórica de esta entrada describe el estado al terminar 2.5.
 
 ## 2.6 — Nivel 2: Vera y la cancha
 
@@ -142,7 +142,7 @@ El resultado de combate vencedor (incluido KO simultáneo) abre VICTORIA. Si exi
 
 **Diferencias y límites respecto a las fuentes:** no se encontró discrepancia en vida, límite de tiempo, spawns, geometría del cuerpo, secuencia, categorías, avisos, activos, recuperaciones o daño; no se agregaron plataformas ni peligros ambientales porque la ficha los define como decorado. El intervalo de 2,1 s empieza luego de recuperación, conforme al contrato. El controlador de campaña no se reescribió: sólo se añadió su método explícito de arnés.
 
-**Valores PROVISIONALES:** espera inicial de 1,2 s antes del primer aviso (no fijada por la ficha); ventana interna de 0,01 s para emitir el balón (la amenaza continúa activa como proyectil hasta salir); duración visual herida de Vera 0,12 s; composición/paleta y proporciones de los rectángulos de cancha; marcador rectangular de Vera hasta disponer de sprite. Los extremos x=110/850 para el centro del balón se derivan de los límites interiores de los muros y su radio de 12 px. Ningún patrón o diálogo de esta fase queda declarado validado por prueba humana. No se avanzó a 2.7.
+**Valores:** inventario consolidado al final de este registro.
 
 ## 2.7 — Nivel 3: CÁTODO-3 y el laboratorio
 
@@ -166,4 +166,59 @@ El resultado de combate vencedor (incluido KO simultáneo) abre VICTORIA. Si exi
 
 **No verificado:** no se hizo recorrido manual con teclado, no se midió la dificultad subjetiva ni la claridad de los avisos, ni se inspeccionó F2 visualmente o la consola durante una campaña completa. La prueba del pulso que ignora paredes aplica solo al pulso explícitamente descrito como cruzando la arena; no se validó visualmente en diferentes tamaños de ventana. Los perfiles fueron consultados pero no ejecutados por agentes externos.
 
-**Valores PROVISIONALES:** espera inicial de 0 s (sin demora añadida); la ventana activa del pulso derivada del margen de salida (40 px); vida de respaldo de 4 s del proyectil, que debe salir antes; duración visual herido de CÁTODO-3 (0,12 s, compartida desde el dato de jefe); composición, paleta y geometría de los rectángulos de laboratorio; marcador rectangular de CÁTODO-3 mientras no haya sprite. La velocidad de 200 px/s del pulso, su origen aproximado (710,410), radio16, tiempos/daño de los patrones y tiempos de sensores siguen los contratos. No se detectó diferencia de mecánicas respecto a la ficha: el pulso sale por el borde opuesto y las franjas peligrosas mantienen el corredor central seguro.
+**Valores:** inventario consolidado al final de este registro. La velocidad 200 px/s, origen aproximado (710,410), radio16 y demás valores de patrón se toman de la ficha de diseño.
+
+## 2.8 — Nivel 4: NULL y cierre de campaña
+
+**Estado:** integración funcional de Nivel 4 y cierre narrativo. La suite local ejecutó **54/54 pruebas PASA**; el juego se abrió en navegador local y el arnés Digit4 mostró la introducción/biblioteca. La campaña completa con teclado físico, el equilibrio y la lectura humana siguen pendientes. No se declara cerrada toda la Fase 2 hasta completar las evidencias manuales y de protocolo abajo.
+
+**Entrega:** `null-data.js` contiene las dos fases y sus ataques como datos; `null-boss.js` especializa el enemigo compartido sólo para sensor dinámico, selección de zona segura y aviso visual de cambio de fase. `library-mechanics.js` calcula una zona segura alcanzable al comenzar el aviso, conserva el destino durante el ataque y difiere el inicio si no existe ruta. `level-4-data.js` describe biblioteca, spawns, arena, presentación y líneas del nivel. `campaign-data.js` registra Nivel 4; el controlador existente enlaza victoria del Nivel 3 con NULL y victoria final con la pantalla de cierre. `campaign-ending.js` muestra cuarta marca, puntaje, récord y epílogo; el almacenamiento local usa el mecanismo de récord ya existente. Digit4 queda identificado como arnés para entrar directo.
+
+**Verificación automática y de navegador:** 54/54 PASA en `juego/tests/tests.html`, incluyendo regresión de 2.1–2.7; datos/carga/reinicio limpio; vida, orden, tiempos y daños de NULL; selección/alcance de zonas seguras y cuerpo completo; ataques/avisos y pausa; transición de fase por umbral una sola vez y reinicio de la secuencia; KO simultáneo; recorrido de los tres estudiantes por los cuatro niveles; cierre narrativo/registro aislado; y atajo Digit4. El humo de navegador confirmó que el atajo abre el nivel y no dejó errores/avisos en ese recorrido. Esto no sustituye una campaña jugada íntegra con teclado ni inspección visual humana de las señales.
+
+**Checklist manual pendiente (teclado físico y juicio humano):**
+
+1. Completar la campaña con Alma, Diego y Nadia; valorar dificultad y si los patrones de NULL se pueden leer y responder sin visor.
+2. Confirmar que cada eco identifica de forma clara la franja peligrosa, y que el aviso del barrido final indica la zona segura antes de que empiece el ataque.
+3. Usar F2 y comprobar visualmente la coincidencia de hitboxes, sensor, franja segura y contactos; validar que saltar fuera de la zona segura no evita el barrido final.
+4. Pausar durante startup, activo, recuperación y anuncio de fase; al reanudar, verificar que no haya salto, daño fantasma ni cambio de destino seguro.
+5. Completar el cierre y revisar las cuatro marcas, las líneas del epílogo, la frase del estudiante elegido y el récord local. Repetir con puntaje mayor/menor y comprobar que solo se conserva el mejor récord terminado.
+6. Reiniciar nivel/campaña desde los flujos permitidos y verificar que no sobrevivan HP, ataques, fase, proyectiles, marcas ni intentos residuales.
+7. Revisar la consola DevTools durante una campaña normal y la presentación en varios tamaños de ventana.
+
+**No verificado manualmente:** teclado físico, balance/dificultad, legibilidad de avisos y cierre, coincidencia visual F2/contactos, cambios de ventana, persistencia con el almacenamiento real del perfil del navegador, consola durante una campaña completa y ejecución en la matriz de navegadores. Las pruebas automáticas fuerzan estados de campaña/KO y usan almacenamiento aislado; no son un playthrough manual. La cobertura de rutas seguras es determinista, pero no valida la sensación temporal de cruzar la arena.
+
+**Cambios de fases anteriores:** no se modificaron bucle, reloj, física del jugador, máquina de estados ni `campaign-controller.js`. El único gancho nuevo de combate es `EnemyCombatant.onPhaseChanged()` para notificar transiciones genéricas a la especialización; se añadió representación y resolución propias de NULL. La caja del barrido final respeta la regla documental de cuerpo completo dentro de zona segura y no permite evadirlo saltando. No se añadieron patrones, curación, vidas ni reglas no documentadas.
+
+**Diferencias respecto a las fuentes:** no se detectó una diferencia de reglas, HP, orden, tiempos, daños o fases. La transición de fase se dispara al primer umbral de 80 HP una vez que termina ataque y recuperación, y reinicia la cola según contrato. El barrido permanece aplazado si el jugador no tiene una zona alcanzable. Sólo la ilustración rectangular y la duración del aviso visual son decisiones provisionales, detalladas en el inventario único al final.
+
+## Revisión de cierre de la Fase 2 (subfases 2.1–2.8)
+
+| Subfase | Automático / evidencia registrada | Pendiente manual o incompleto |
+|---|---|---|
+| 2.1 Núcleo | Regresión de estados, reloj/paso fijo y uso de navegador observados en el registro. | Pérdida de foco/visibilidad en navegador real, redimensionado/DPR en varios viewports, consola DevTools y matriz de navegadores no documentados íntegramente; faltan métricas PF de línea base y evidencia reproducible de descarte de tiempo. |
+| 2.2 Entrada/física | Pruebas de salto cercano a 150 px y colisiones de suelo, pared, plataforma y muñeco; limpieza de entrada. | Sensación de controles, cada combinación física de teclas, medición manual y pérdida de foco con tecla retenida. |
+| 2.3 Combate común | Casos de contacto único, invulnerabilidad, proyectiles, pausa, KO y paso fijo en tests. | Sensación de golpe, parpadeo, visual F2 y console DevTools durante uso manual. |
+| 2.4 Chilo/tutorial | Pruebas de secuencia/tutorial, patrón, reinicio, pausa y resultados. | Claridad del tutorial, balance y legibilidad con teclado físico. |
+| 2.5 Campaña | Transiciones, intentos, score/marcas, retries, selección y récord tienen casos automáticos. | Recorrido completo con teclado; accesibilidad semántica del selector Canvas y confirmación del récord en el perfil real. |
+| 2.6 Vera/cancha | Datos y patrón, rebote, defensa, salto, pausa, progresión y tres personajes probados. | Dificultad/lectura de avisos, consola y campaña completa manual. |
+| 2.7 CÁTODO-3/laboratorio | Secuencia, pulso, sensores/corredor, daños, pausa y progresión probados. | Dificultad, F2, legibilidad y navegación manual de zonas seguras desde extremos con cada estudiante. |
+| 2.8 NULL/cierre | 54/54 regresiones en navegador; integración de las cuatro entradas, cierre y arnés observados. | Playthrough con teclado, dificultad/avisos, inspección visual F2, récord del perfil real, consola completa y matriz de navegadores. |
+
+**Evaluación de puerta:** la implementación automatizada 2.1–2.8 está integrada, pero no hay evidencia suficiente para declarar aprobado el cierre formal de Fase 2. Permanecen verificaciones manuales de diseño/usabilidad, evidencia técnica pendiente de 2.1 y medición de PF-04…PF-07 mediante duelo real; PF-01/PF-03 sólo tienen línea base parcial y PF-02 corresponde al cascarón inicial. Las métricas deben registrarse con navegador, equipo, viewport y procedimiento, según el plan.
+
+**Deuda de protocolo de agentes:** los perfiles requeridos por cada subfase fueron consultados y sus criterios se reflejan en implementación/tests. No hubo ejecución delegada externa en esta corrida; el registro histórico de 2.4/2.5–2.7 conserva sus propias notas y no constituye aprobación independiente del resultado 2.8. Por tanto, queda pendiente completar las revisiones/artefactos de agentes que exige `FLUJO_OPERATIVO.md` y registrar sus respuestas, especialmente las revisiones cruzadas de diseño, física, narrativa, prueba y Canvas/responsive/input. No se declara una revisión de agente no realizada como PASA.
+
+## Inventario consolidado de valores y presentaciones PROVISIONALES
+
+Esta es la única lista consolidada de decisiones provisionales activas en la Fase 2. HP, tiempos y daños prescritos por los contratos no se repiten aquí como provisionales. Los datos de balance de combate siguen sujetos a la iteración de juego que el plan contempla, sin sustituir sus valores documentados.
+
+- **2.1–2.2, demostradores y movimiento:** pantallas simples del núcleo, señales/colores de depuración y geometría de sala/plataformas de prueba; aceleración 2000 px/s², fricción 2400 px/s², control aéreo 70 %, caída máxima 900 px/s, gravedad 1200 px/s², impulso de salto −600 px/s y factor de corte 0.5. El buffer de 100 ms proviene del contrato y epsilon es una tolerancia técnica, no balance provisional. Velocidades Alma/Diego/Nadia 240/204/288 px/s son datos de personaje definidos para 2.2.
+- **2.3, hitboxes y presentación de combate:** startup normal 0; hitbox normal de altura 44 px y offset vertical −66 px; especiales con startup 0 y ventanas activas de un paso (el volley permanece activo según su vuelo); dimensiones/offset de pulso y carga; herido visual 0.12 s; opacidad de invulnerabilidad 0.38 e intervalo 0.08 s; orbe del muñeco daño 8, startup 0.6 s, activo 1 paso, recuperación 0.5 s, caja 18×18 px, velocidad 260 px/s, vida 4 s; máximo 6 proyectiles y margen de limpieza 40 px; notas de Nadia 12×12 px, dispersión 12 px, velocidad 260 px/s y vida derivada del recorrido. Marcadores geométricos/efectos rectangulares mientras no existan sprites/arte final.
+- **2.4, Nivel 1/tutorial:** arco visual de salto de Chilo 110 px y herido visual 0.12 s; ubicación, tamaño, paleta y tipografía del panel de tutorial; pasos/textos extendidos de mover → saltar → atacar → guardia → especial → aproximación, ya que el contrato sólo fija enseñanza de distancia/salto y el primer aletazo como tutorial; rectángulos/paleta del estacionamiento, autos, palmeras, conos, pavimento y bloques; sombra/impacto y marcador rectangular de Chilo.
+- **2.5, interfaz de campaña:** distribución y estilo Canvas de tarjetas/ayuda de selección, menú y Game Over. El cierre provisional de “solo Nivel 1” anotado históricamente en 2.5 fue reemplazado por cierre de campaña real en 2.8; no es provisional activo.
+- **2.6, Nivel 2:** espera inicial de Vera 1.2 s; ventana interna de emisión del balón 0.01 s; herido visual 0.12 s; disposición/paleta del rectángulo de cancha y marcador rectangular de Vera. Los límites del balón se derivan del muro y radio del contrato.
+- **2.7, Nivel 3:** espera inicial añadida 0 s; ventana de pulso derivada del margen de salida 40 px; vida de respaldo 4 s del pulso; herido visual 0.12 s; arte rectangular/paleta del laboratorio y marcador de CÁTODO-3.
+- **2.8, Nivel 4/cierre:** espera inicial de NULL añadida 0 s; herido visual compartido 0.12 s; aviso gráfico de fase de 1.25 s; decoración/paleta geométrica de biblioteca y marcador rectangular/contorno de NULL; disposición, fuentes y colores de panel/texto del cierre. Las zonas seguras, criterio de ruta, ataques y transición de fase sí siguen contrato.
+
+No se verificó manualmente la duración/lectura de estos avisos, la calidad estética ni el ajuste de los marcadores geométricos; quedan sujetos a revisión humana y arte final. No se hizo commit ni se borraron archivos.

@@ -16,6 +16,7 @@ export const ACTION = Object.freeze({
   SELECT_NEXT: "selectNext",
   LEVEL_TWO_HARNESS: "levelTwoHarness",
   LEVEL_THREE_HARNESS: "levelThreeHarness",
+  LEVEL_FOUR_HARNESS: "levelFourHarness",
 });
 
 export const DEFAULT_ACTION_BINDINGS = Object.freeze({
@@ -36,6 +37,7 @@ export const DEFAULT_ACTION_BINDINGS = Object.freeze({
   [ACTION.SELECT_NEXT]: Object.freeze(["KeyD", "ArrowRight"]),
   [ACTION.LEVEL_TWO_HARNESS]: Object.freeze(["Digit2"]),
   [ACTION.LEVEL_THREE_HARNESS]: Object.freeze(["Digit3"]),
+  [ACTION.LEVEL_FOUR_HARNESS]: Object.freeze(["Digit4"]),
 });
 
 export const BUFFERED_ACTIONS = new Set([

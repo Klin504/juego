@@ -26,6 +26,10 @@ import { CATODO3_DATA, CATODO_PULSE_ATTACK, CATODO_SENSOR_LEFT_ATTACK, CATODO_SE
 import { Catodo3 } from "../src/catodo3.js";
 import { LABORATORY_MECHANICS } from "../src/laboratory-mechanics.js";
 import { Projectile } from "../src/projectile.js";
+import { LEVEL_4_DATA } from "../src/level-4-data.js";
+import { NULL_DATA, NULL_ATTACKS } from "../src/null-data.js";
+import { NullBoss } from "../src/null-boss.js";
+import { LIBRARY_MECHANICS, chooseReachableSafeZone, playerInsideSafeZone } from "../src/library-mechanics.js";
 
 const output = document.querySelector("#results");
 const summary = document.querySelector("#summary");
@@ -43,6 +47,11 @@ function run(name, test) {
   } catch (error) {
     results.push({ name, passed: false, error: error?.message ?? String(error) });
   }
+  const result = results.at(-1);
+  const item = document.createElement("li");
+  item.className = result.passed ? "pass" : "fail";
+  item.textContent = `${result.passed ? "PASA" : "FALLA"} — ${result.name}${result.error ? `: ${result.error}` : ""}`;
+  output.append(item);
 }
 
 function actions(overrides = {}) {
@@ -216,8 +225,8 @@ run("Pausa congela un ataque activo de Vera y reanudar no aplica daño fantasma"
   assert(level.enemy.attack.elapsedSec === before + dt, "la fase no continuó desde el tiempo pausado");
 });
 
-run("La campaña enlaza niveles 1–3, conserva estudiante y cierra tras CÁTODO-3", () => {
-  assert(CAMPAIGN_LEVELS.length === 3 && CAMPAIGN_LEVELS[1].data === LEVEL_2_DATA && CAMPAIGN_LEVELS[2].data === LEVEL_3_DATA, "niveles 2/3 no están registrados en campaña");
+run("La campaña enlaza niveles 1–4 y conserva estudiante hasta el último duelo", () => {
+  assert(CAMPAIGN_LEVELS.length === 4 && CAMPAIGN_LEVELS[1].data === LEVEL_2_DATA && CAMPAIGN_LEVELS[2].data === LEVEL_3_DATA && CAMPAIGN_LEVELS[3].data === LEVEL_4_DATA, "niveles 2–4 no están registrados en campaña");
   for (const fighterId of ["alma", "diego", "nadia"]) {
     const playable = loadLevel(LEVEL_2_DATA, fighterId);
     assert(playable.enemy instanceof Vera && playable.player.fighterId === fighterId, `Nivel 2 no construye a ${fighterId}`);
@@ -228,13 +237,16 @@ run("La campaña enlaza niveles 1–3, conserva estudiante y cierra tras CÁTODO
     campaign.settleVictory({ playerHp: 80, remainingSeconds: 30 });
     assert(campaign.advance() && campaign.currentLevel.id === "nivel-3", "Nivel 2 no pasó a Nivel 3");
     campaign.settleVictory({ playerHp: 80, remainingSeconds: 30 });
-    assert(!campaign.advance() && campaign.terminal === "VICTORIA", "la campaña no cierra tras CÁTODO-3");
+    assert(campaign.advance() && campaign.currentLevel.id === "nivel-4" && campaign.selectedFighterId === fighterId, "Nivel 3 no pasó a Nivel 4 conservando estudiante");
+    campaign.settleVictory({ playerHp: 80, remainingSeconds: 30 });
+    assert(!campaign.advance() && campaign.terminal === "VICTORIA", "la campaña no cierra tras NULL");
   }
   const retries = new CampaignController();
   retries.selectFighter("alma");
   retries.advance();
   retries.advance();
-  assert(retries.attemptsRemaining === 3 && retries.currentLevel.id === "nivel-3", "avance consumió intento");
+  retries.advance();
+  assert(retries.attemptsRemaining === 3 && retries.currentLevel.id === "nivel-4", "avance consumió intento");
   assert(retries.settleDefeat() && retries.attemptsRemaining === 2 && retries.retryAfterDefeat(), "derrota no conserva regla de reintentos");
 });
 
@@ -369,6 +381,202 @@ run("El pulso de CÁTODO-3 se puede cubrir o despejar con 30 px de salto", () =>
   assert(pulseDamage({ feetY: 400 }) === 100, "salto con 30 px de despeje no evitó el pulso");
 });
 
+run("El cargador construye el Nivel 4 con NULL y estado inicial limpio", () => {
+  const level = loadLevel(LEVEL_4_DATA, "nadia");
+  assert(level.data === LEVEL_4_DATA && level.data.id === "nivel-4", "no cargó biblioteca");
+  assert(level.enemy instanceof NullBoss && level.enemy.hp === 160 && level.enemy.phaseIndex === 0, "NULL no inició en fase uno con 160 HP");
+  assert(level.enemy.peekNextAttack() === NULL_ATTACKS.echoChilo, "secuencia inicial de NULL incorrecta");
+  assert(level.player.fighterId === "nadia" && level.player.position.x === 210 && level.enemy.position.x === 750, "estudiante o spawns no se conservaron");
+  assert(level.combat.projectiles.length === 0 && level.combat.playerCombatant.hp === 85, "el combate no empezó limpio");
+  assert(level.elapsedSeconds === 0 && level.status === "en curso" && level.data.timeLimitSec === 360, "reloj, estado o límite incorrecto");
+  assert(level.data.arena.solids.length === 3 && level.data.arena.background.some((rect) => rect.id === "library-terminal"), "arena de biblioteca incompleta");
+});
+
+run("NULL usa patrones documentados, orden, daños, tiempos y umbral de fase", () => {
+  const [phaseOne, phaseTwo] = NULL_DATA.phases;
+  assert(NULL_DATA.maxHp === 160 && phaseOne.transitionAtHp === 80, "vida o umbral de NULL incorrectos");
+  assert(phaseOne.attacks.map((attack) => attack.patternId).join(",") === "NULL_ECHO_CHILO,NULL_ECHO_VERA,NULL_ECHO_CATODO", "secuencia de ecos incorrecta");
+  assert(phaseTwo.attacks.map((attack) => attack.patternId).join(",") === "NULL_ECHO_CHILO,NULL_ECHO_VERA,NULL_ECHO_CATODO,NULL_FINAL_SWEEP", "la segunda fase no reinicia ecos ni añade barrido");
+  assert(phaseOne.interAttackDelaySec === 1.8 && phaseTwo.interAttackDelaySec === 1.5, "pausas entre ataques fuera del contrato");
+  const expected = [
+    [NULL_ATTACKS.echoChilo, 1.2, 0.2, 0.55, 18],
+    [NULL_ATTACKS.echoVera, 0.9, 0.4, 0.6, 19],
+    [NULL_ATTACKS.echoCatodo, 1.15, 0.5, 0.65, 20],
+    [NULL_ATTACKS.finalSweep, 1.5, 0.6, 0.9, 24],
+  ];
+  for (const [attack, startup, active, recovery, damage] of expected) {
+    assert(attack.startupSec === startup && attack.activeSec === active && attack.recoverySec === recovery && attack.damage === damage, `${attack.patternId} tiene daño o tiempos incorrectos`);
+  }
+
+  const enemy = new NullBoss(NULL_DATA);
+  const player = new FighterEntity({ fighterId: "diego", x: 625, y: 430 });
+  enemy.attack = { id: "null-threshold", data: NULL_ATTACKS.echoChilo, elapsedSec: 1.2 + 0.2 + 0.55 - 2 * dt, phase: "recovery", facing: -1, targetPosition: { x: 625, y: 390 }, contactedTargets: new Set() };
+  enemy.applyDamage(80, { sourceId: "test", attackInstanceId: "threshold-80", step: 1 });
+  assert(enemy.hp === 80 && enemy.phaseIndex === 0, "cambió de fase antes de terminar el ataque y recuperación");
+  enemy.update(dt, player);
+  assert(enemy.phaseIndex === 0, "el umbral anticipó la transición antes del final de recuperación");
+  for (let step = 0; step < 3 && enemy.phaseIndex === 0; step += 1) enemy.update(dt, player);
+  assert(enemy.phaseIndex === 1 && enemy.peekNextAttack() === NULL_ATTACKS.echoChilo, "no reinició en el primer eco después de la recuperación");
+  assert(enemy.drainEvents().some((event) => event.kind === "phaseChanged" && event.phaseIndex === 1), "no emitió evento de transición de fase");
+  assert(enemy.phaseNoticeRemainingSec > 0, "no anunció visualmente la fase nueva");
+  for (let step = 0; step < 240; step += 1) enemy.update(dt, player);
+  assert(enemy.phaseIndex === 1, "la fase cambió más de una vez");
+});
+
+run("Los cuatro ataques de NULL aplican su daño y respuesta específica", () => {
+  function hit({ attack, x = 320, y = 430, guard = false, safeZone = LIBRARY_MECHANICS.finalSafeZones[0] }) {
+    const player = new FighterEntity({ fighterId: "alma", x, y });
+    player.grounded = y === 430;
+    const fight = new CombatSystem({ player, enemyData: NULL_DATA, enemyFactory: (data) => new NullBoss(data), solids: [] });
+    const dynamicAttack = {
+      id: `fixture-${attack.patternId}`, data: attack, elapsedSec: attack.startupSec + 0.01, phase: "active", facing: -1,
+      targetPosition: { x, y: y - 39 }, contactedTargets: new Set(),
+    };
+    if (attack.patternId === "NULL_ECHO_VERA") dynamicAttack.sweepBox = { x: 98, y: 400, width: 764, height: 30 };
+    if (attack.patternId === "NULL_ECHO_CATODO") { dynamicAttack.sensorId = "left"; dynamicAttack.sensorBox = { x: 260, y: 400, width: 120, height: 30 }; }
+    if (attack.patternId === "NULL_FINAL_SWEEP") dynamicAttack.safeZone = safeZone;
+    fight.enemy.attack = dynamicAttack;
+    const guardInput = guard ? { guard: { pressed: false, held: true, released: false } } : {};
+    fight.update(dt, actions(guardInput));
+    const hp = fight.playerCombatant.hp;
+    fight.update(dt, actions(guardInput));
+    return [hp, fight.playerCombatant.hp];
+  }
+  assert(JSON.stringify(hit({ attack: NULL_ATTACKS.echoChilo, x: 680, guard: true })) === "[94,94]", "el eco frontal no respeta cobertura y contacto único (18→6)");
+  assert(hit({ attack: NULL_ATTACKS.echoVera, x: 500 })[0] === 81, "el eco rasante no aplicó 19");
+  assert(hit({ attack: NULL_ATTACKS.echoVera, x: 500, y: 400 })[0] === 100, "el eco rasante no permite despeje de 30 px");
+  assert(hit({ attack: NULL_ATTACKS.echoCatodo, x: 320 })[0] === 80, "el eco de sensor no aplicó 20");
+  assert(hit({ attack: NULL_ATTACKS.echoCatodo, x: 480 })[0] === 100, "el corredor central recibió daño del eco de sensor");
+  assert(hit({ attack: NULL_ATTACKS.finalSweep, x: 150, y: 250 })[0] === 100, "el cuerpo completo en franja segura recibió daño final");
+});
+
+run("Las zonas seguras de biblioteca son alcanzables, fijas y protegen el cuerpo completo", () => {
+  const bossBox = { x: 722, y: 334, width: 56, height: 96 };
+  const left = chooseReachableSafeZone(210, bossBox);
+  const right = chooseReachableSafeZone(840, bossBox);
+  const tieLeft = chooseReachableSafeZone(480, bossBox, 0);
+  const tieRight = chooseReachableSafeZone(480, bossBox, 1);
+  assert(left.zone.id === "left" && right.zone.id === "right", "no escogió la ruta libre más corta desde los extremos");
+  assert(tieLeft.zone.id !== tieRight.zone.id && Math.abs(tieLeft.distancePx - tieRight.distancePx) < 1e-9, "el empate no alternó de forma determinista");
+  const player = new FighterEntity({ fighterId: "alma", x: 150, y: 430 });
+  assert(playerInsideSafeZone(player, LIBRARY_MECHANICS.finalSafeZones[0]), "el cuerpo entero en franja no se reconoce seguro");
+  player.position.x = 130;
+  assert(!playerInsideSafeZone(player, LIBRARY_MECHANICS.finalSafeZones[0]), "aceptó cuerpo parcialmente fuera de franja segura");
+  player.position.x = 480;
+  assert(!playerInsideSafeZone(player, LIBRARY_MECHANICS.finalSafeZones[0]), "un salto fuera de la franja evitó el barrido final");
+
+  const airborne = new FighterEntity({ fighterId: "alma", x: 500, y: 250 });
+  const finalFight = new CombatSystem({ player: airborne, enemyData: NULL_DATA, enemyFactory: (data) => new NullBoss(data), solids: [] });
+  finalFight.enemy.attack = { id: "full-floor-test", data: NULL_ATTACKS.finalSweep, elapsedSec: 1.51, phase: "active", facing: -1, targetPosition: { x: 500, y: 300 }, contactedTargets: new Set(), safeZone: LIBRARY_MECHANICS.finalSafeZones[0] };
+  finalFight.update(dt, actions());
+  assert(finalFight.playerCombatant.hp === 76, "saltar fuera de la zona segura evitó el barrido final");
+});
+
+run("Pausa durante el ataque y aviso de fase de NULL no avanza ni causa daño fantasma", () => {
+  const level = loadLevel(LEVEL_4_DATA, "diego");
+  const enemy = level.enemy;
+  enemy.attack = { id: "null-pause", data: NULL_ATTACKS.echoCatodo, elapsedSec: 1.3, phase: "active", facing: -1, targetPosition: { x: 300, y: 390 }, contactedTargets: new Set(), sensorId: "left", sensorBox: { x: 260, y: 400, width: 120, height: 30 } };
+  level.player.position.x = 480;
+  const hp = level.combat.playerCombatant.hp;
+  const elapsed = enemy.attack.elapsedSec;
+  for (let frame = 0; frame < 180; frame += 1) { /* En PAUSA no se actualiza el nivel. */ }
+  assert(enemy.attack.elapsedSec === elapsed && level.combat.playerCombatant.hp === hp, "ataque avanzó durante PAUSA");
+  updateLevel(level, actions(), dt);
+  assert(level.combat.playerCombatant.hp === hp && enemy.attack.elapsedSec === elapsed + dt, "reanudar produjo daño fantasma o salto");
+
+  const transitioning = new NullBoss(NULL_DATA);
+  const target = new FighterEntity({ fighterId: "alma", x: 210, y: 430 });
+  transitioning.applyDamage(80, { sourceId: "test", attackInstanceId: "phase", step: 1 });
+  assert(transitioning.phaseIndex === 1, "el umbral sin ataque no activó transición");
+  const notice = transitioning.phaseNoticeRemainingSec;
+  for (let frame = 0; frame < 90; frame += 1) { /* La pausa congela incluso el banner. */ }
+  assert(transitioning.phaseNoticeRemainingSec === notice && transitioning.hp === 80, "aviso de fase o vida avanzó durante PAUSA");
+  transitioning.update(dt, target);
+  assert(transitioning.phaseNoticeRemainingSec === notice - dt, "el aviso no reanudó desde el paso congelado");
+});
+
+run("KO simultáneo en umbral pendiente de NULL conserva prioridad de victoria", () => {
+  const level = loadLevel(LEVEL_4_DATA, "alma");
+  level.player.position.x = 680;
+  level.combat.playerCombatant.applyDamage(99, { sourceId: "test", attackInstanceId: "one-hp", step: 1 });
+  level.combat.playerCombatant.invulnerabilityRemainingSec = 0;
+  const enemy = level.enemy;
+  enemy.attack = { id: "null-phase-ko", data: NULL_ATTACKS.echoChilo, elapsedSec: 1.2 + 0.2 + 0.55 - dt / 2, phase: "recovery", facing: -1, targetPosition: { x: 680, y: 390 }, contactedTargets: new Set() };
+  enemy.applyDamage(150, { sourceId: "test", attackInstanceId: "phase-pending", step: 1 });
+  level.combat.playerAttackDamage = 10;
+  level.combat.spawnProjectile({ id: "simultaneous-null-shot", attackInstanceId: "simultaneous-null-shot", patternId: "test-phase-shot", owner: "enemy", x: 680, y: 390, velocityX: 0, velocityY: 0, width: 8, height: 8, damage: 1, lifetimeSec: 2 });
+  const events = level.combat.update(dt, actions({ normalAttack: { pressed: true, held: true, released: false } }));
+  assert(enemy.hp === 0 && level.combat.playerCombatant.hp === 0, "el caso no produjo KO simultáneo");
+  assert(enemy.phaseIndex === 1 && events.some((event) => event.kind === "phaseChanged"), "KO simultáneo no coincidió con cambio de fase");
+  assert(level.combat.outcome === COMBAT_OUTCOME.PLAYER_VICTORY, "el KO simultáneo durante fase pendiente perdió prioridad");
+});
+
+run("Los tres estudiantes pueden completar la campaña conectada con cuatro niveles", () => {
+  const ids = ["nivel-1", "nivel-2", "nivel-3", "nivel-4"];
+  for (const fighterId of ["alma", "diego", "nadia"]) {
+    const campaign = new CampaignController();
+    assert(campaign.selectFighter(fighterId), `no seleccionó ${fighterId}`);
+    for (let index = 0; index < ids.length; index += 1) {
+      const level = loadLevel(campaign.currentLevel.data, fighterId);
+      assert(level.player.fighterId === fighterId, `${fighterId} no llegó al ${ids[index]}`);
+      level.enemy.applyDamage(level.enemy.hp, { sourceId: fighterId, attackInstanceId: `campaign-${fighterId}-${index}`, step: index + 1 });
+      updateLevel(level, actions(), dt);
+      assert(level.combat.outcome === COMBAT_OUTCOME.PLAYER_VICTORY, `${fighterId} no pudo cerrar ${ids[index]}`);
+      assert(campaign.settleVictory({ playerHp: level.combat.playerCombatant.hp, remainingSeconds: level.data.timeLimitSec - level.elapsedSeconds }), `no consolidó marca ${index + 1}`);
+      if (index < ids.length - 1) assert(campaign.advance() && campaign.currentLevel.id === ids[index + 1], `flujo roto tras ${ids[index]}`);
+      else assert(campaign.terminal === "VICTORIA" && campaign.marks.every(Boolean), "cierre no consolidó las cuatro marcas");
+    }
+  }
+});
+
+run("Victoria final guarda récord aislado y muestra el cierre narrativo real", () => {
+  const storage = memoryStorage();
+  const clock = new GameClock();
+  const input = { clear() {}, snapshotForStep: () => actions() };
+  let machine;
+  const states = createStates(clock, input, (next) => machine.transition(next), storage);
+  machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+  const transition = (next) => machine.transition(next);
+  states.commands.handle("confirm", STATE.MENU, transition);
+  states.commands.handle("levelFourHarness", STATE.SELECT_FIGHTER, transition);
+  states.campaign.marks.splice(0, 3, true, true, true);
+  states.commands.handle("confirm", STATE.LEVEL_INTRO, transition);
+  states.getLevel().combat.enemy.applyDamage(160, { sourceId: "test", attackInstanceId: "null-final", step: 1 });
+  machine.update(dt);
+  assert(machine.currentName === STATE.VICTORY && states.campaign.marks.every(Boolean), "no completó final con cuarta marca");
+  assert(Number(storage.getItem(CAMPAIGN_RECORD_STORAGE_KEY)) === states.campaign.campaignScore && states.getCampaignRecord() === states.campaign.campaignScore, "récord real no se guardó al ganar Nivel 4");
+  const drawn = [];
+  const context = { fillRect() {}, strokeRect() {}, fillText(text) { drawn.push(String(text)); } };
+  machine.render(context);
+  assert(drawn.some((line) => line.includes("EL RECORRIDO QUEDA ABIERTO")) && drawn.some((line) => line.includes("RÉCORD LOCAL")), "no dibujó pantalla final ni récord");
+  assert(drawn.some((line) => line.includes("Rutina de validación detenida")) && drawn.some((line) => line.includes("Nueva regla")) && drawn.some((line) => line.includes("Resolver el error")), "faltan mensajes finales documentados o la variante del estudiante");
+});
+
+run("Arnés Digit4 abre la introducción del Nivel 4 con estudiante elegido", () => {
+  const clock = new GameClock();
+  const input = new InputController();
+  let machine;
+  const states = createStates(clock, input, (next) => machine.transition(next), memoryStorage());
+  machine = new StateMachine(states, VALID_STATE_TRANSITIONS, STATE.MENU);
+  const transition = (next) => machine.transition(next);
+  states.commands.handle("confirm", STATE.MENU, transition);
+  states.commands.handle("selectNext", STATE.SELECT_FIGHTER, transition);
+  input.connect({ stateMachine: machine, clock, loop: { resetTiming() {} }, commands: states.commands });
+  input.handleKeyDown({ code: "Digit4", repeat: false, isComposing: false, ctrlKey: false, altKey: false, metaKey: false, preventDefault() {} });
+  assert(machine.currentName === STATE.LEVEL_INTRO && states.campaign.currentLevel.id === "nivel-4" && states.campaign.selectedFighterId === "diego", "Digit4 no cargó NULL con estudiante seleccionado");
+});
+
+run("Reiniciar Nivel 4 limpia vida, proyectiles, ataque, fase y aviso visual", () => {
+  const dirty = loadLevel(LEVEL_4_DATA, "diego");
+  dirty.enemy.applyDamage(90, { sourceId: "test", attackInstanceId: "phase-dirty", step: 1 });
+  dirty.enemy.attack = { id: "dirty-null", data: NULL_ATTACKS.finalSweep, elapsedSec: 1.6, phase: "active", facing: -1, targetPosition: { x: 210, y: 390 }, contactedTargets: new Set(), safeZone: LIBRARY_MECHANICS.finalSafeZones[0] };
+  dirty.combat.spawnProjectile({ id: "dirty-library-projectile", attackInstanceId: "dirty-library-projectile", patternId: "fixture", owner: "enemy", x: 300, y: 300, velocityX: 20, velocityY: 0, width: 8, height: 8, damage: 1, lifetimeSec: 3 });
+  dirty.combat.playerCombatant.applyDamage(10, { sourceId: "null", attackInstanceId: "dirty-damage", step: 1 });
+  const clean = loadLevel(LEVEL_4_DATA, "diego");
+  assert(clean.enemy.phaseIndex === 0 && clean.enemy.hp === 160 && clean.enemy.attack === null && clean.enemy.phaseNoticeRemainingSec === 0, "NULL no volvió a fase inicial");
+  assert(clean.combat.playerCombatant.hp === 120 && clean.combat.projectiles.length === 0 && clean.elapsedSeconds === 0 && clean.status === "en curso", "quedaron proyectiles, daño, reloj o resultado residual");
+});
+
 run("KO simultáneo, derrota, los tres estudiantes y progresión Nivel 2→3→cierre", () => {
   for (const fighterId of ["alma", "diego", "nadia"]) {
     const level = loadLevel(LEVEL_3_DATA, fighterId);
@@ -387,8 +595,10 @@ run("KO simultáneo, derrota, los tres estudiantes y progresión Nivel 2→3→c
   campaign.advance();
   campaign.settleVictory({ playerHp: 100, remainingSeconds: 100 });
   assert(campaign.advance() && campaign.currentLevel.id === "nivel-3" && campaign.selectedFighterId === "diego", "Nivel 2 no avanzó a Nivel 3 conservando estudiante");
-  campaign.settleVictory({ playerHp: 100, remainingSeconds: 100 });
-  assert(!campaign.advance() && campaign.terminal === "VICTORIA", "Nivel 3 no cerró campaña");
+    campaign.settleVictory({ playerHp: 100, remainingSeconds: 100 });
+    assert(campaign.advance() && campaign.currentLevel.id === "nivel-4", "Nivel 3 no avanzó a NULL");
+    campaign.settleVictory({ playerHp: 100, remainingSeconds: 100 });
+    assert(!campaign.advance() && campaign.terminal === "VICTORIA", "Nivel 4 no cerró campaña");
   const retry = new CampaignController();
   retry.selectFighter("alma");
   retry.advance(); retry.advance();
@@ -1004,12 +1214,6 @@ run("El récord se guarda solo en terminal y conserva el mejor puntaje", () => {
   assert(campaign.attemptScore === 35, `puntaje de golpes/especial duplicado o incorrecto: ${campaign.attemptScore}`);
 });
 
-for (const result of results) {
-  const item = document.createElement("li");
-  item.className = result.passed ? "pass" : "fail";
-  item.textContent = `${result.passed ? "PASA" : "FALLA"} — ${result.name}${result.error ? `: ${result.error}` : ""}`;
-  output.append(item);
-}
 const passed = results.filter((result) => result.passed).length;
 const failed = results.length - passed;
 summary.textContent = failed === 0

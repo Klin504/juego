@@ -25,7 +25,7 @@ if (!context) {
 } else {
   canvas.width = LOGICAL_WIDTH;
   canvas.height = LOGICAL_HEIGHT;
-  canvas.setAttribute("aria-label", "Chilos Fighters. Menú principal, selección de estudiante y niveles 1 a 3");
+  canvas.setAttribute("aria-label", "Chilos Fighters. Menú principal, selección de estudiante y campaña de cuatro niveles");
 
   const clock = new GameClock();
   const input = new InputController();

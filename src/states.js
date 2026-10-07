@@ -4,6 +4,7 @@ import { CampaignController } from "./campaign-controller.js";
 import { readCampaignRecord, saveCampaignRecord } from "./campaign-storage.js";
 import { SELECTABLE_FIGHTERS } from "./campaign-data.js";
 import { loadLevel, renderLevelBackground, updateLevel } from "./level-loader.js";
+import { renderCampaignEnding } from "./campaign-ending.js";
 
 const COLORS = Object.freeze({ background: "#101622", panel: "#1d2939", border: "#47d7c8", text: "#f2f4f8", muted: "#b6c2d2", accent: "#ffca6a", selected: "#354b63" });
 const PANEL = Object.freeze({ x: 104, y: 76, width: 752, height: 388 });
@@ -107,7 +108,7 @@ export function createStates(clock, input, transitionState, storage = globalThis
   const states = new Map([
     [STATE.MENU, state((ctx) => drawScreen(ctx, "CHILOS FIGHTERS", ["Cuatro duelos · Tres intentos", "Enter: nueva campaña · G: arnés de derrota", "En selección: A/D o flechas · Enter: confirmar"]))],
     [STATE.SELECT_FIGHTER, state((ctx) => {
-      drawScreen(ctx, "ELIGE A TU ESTUDIANTE", ["A/D o ←/→: seleccionar · Enter: comenzar · M: menú", "2 / 3: ARNES · iniciar Nivel 2 / Nivel 3 directamente"]);
+      drawScreen(ctx, "ELIGE A TU ESTUDIANTE", ["A/D o ←/→: seleccionar · Enter: comenzar · M: menú", "2 / 3 / 4: ARNES · iniciar nivel directo"]);
       const cardWidth = SELECT_CARD_WIDTH;
       const gap = SELECT_CARD_GAP;
       const left = (LOGICAL_WIDTH - (cardWidth * SELECTABLE_FIGHTERS.length + gap * 2)) / 2;
@@ -177,13 +178,21 @@ export function createStates(clock, input, transitionState, storage = globalThis
     [STATE.VICTORY, state((ctx) => {
       const nextLevelExists = campaign.levelIndex + 1 < campaign.levels.length;
       const studentLine = level?.data.studentLines?.victory?.[campaign.selectedFighterId];
+      if (!nextLevelExists) {
+        renderCampaignEnding(ctx, {
+          score: campaign.campaignScore,
+          record: campaignRecord,
+          studentLine: `${selectedFighterName()}: «${studentLine ?? "La campaña queda abierta para todos."}»`,
+        });
+        return;
+      }
       const narrative = [...(level?.data.victoryLines ?? []), ...(studentLine ? [`${selectedFighterName()}: «${studentLine}»`] : [])];
       drawScreen(ctx, "VICTORIA", [
-        nextLevelExists ? `Marca obtenida · Puntuación: ${campaign.campaignScore}` : "Campaña provisional completada: no hay más niveles cargados.",
+        `Marca obtenida · Puntuación: ${campaign.campaignScore}`,
         ...narrative,
         `Estudiante: ${campaign.selectedFighterId} · Intentos restantes: ${campaign.attemptsRemaining}`,
         `Récord local: ${campaignRecord ?? "no disponible"}`,
-        nextLevelExists ? "Enter: siguiente nivel · M: menú" : "Enter: jugar de nuevo · M: menú",
+        "Enter: siguiente nivel · M: menú",
       ]);
     })],
   ]);
@@ -202,6 +211,10 @@ export function createStates(clock, input, transitionState, storage = globalThis
         else if (action === "levelThreeHarness") {
           campaign.selectFighter(SELECTABLE_FIGHTERS[selectedIndex].id);
           if (campaign.startAtLevelForHarness(2)) inputTransition(STATE.LEVEL_INTRO);
+        }
+        else if (action === "levelFourHarness") {
+          campaign.selectFighter(SELECTABLE_FIGHTERS[selectedIndex].id);
+          if (campaign.startAtLevelForHarness(3)) inputTransition(STATE.LEVEL_INTRO);
         }
         else if (action === "menuTest") inputTransition(STATE.MENU);
         return true;
