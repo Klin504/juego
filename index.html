@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101622">
+    <link rel="icon" href="data:,">
+    <title>Chilos Fighters — Fase 3: Campaña completa y Secreto GUÍA</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./src/main.js"></script>
+  </head>
+  <body>
+    <div id="sr-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <aside id="screen-warning" class="screen-warning" role="note">
+      La primera versión requiere teclado y una ventana horizontal amplia (mínimo 960 × 540 recomendado).
+    </aside>
+    <main id="juego" class="game-shell" aria-label="Chilos Fighters, campaña completa con cuatro niveles y Secreto GUÍA">
+      <canvas id="arena" width="960" height="540" aria-label="Pantalla de juego Chilos Fighters"></canvas>
+      <div id="hud-actions" class="hud-actions">
+        <button id="btn-visor" type="button" class="btn-visor" aria-label="Activar Visor GUÍA (Tecla E)">
+          🧭 Visor GUÍA [E]
+        </button>
+      </div>
+      <p id="error-canvas" class="canvas-error" role="alert" hidden>
+        Este navegador no pudo iniciar Canvas 2D. Prueba con una versión reciente de Chrome, Edge o Firefox.
+      </p>
+    </main>
+  </body>
+</html>
