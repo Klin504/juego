@@ -155,6 +155,26 @@ export class InputController {
       return;
     }
 
+    if (this.#stateMachine.currentName === STATE.ARCHIVE) {
+      if (this.#commands.handle?.("archiveKey", STATE.ARCHIVE, (next, resetClock = false) => this.#transition(next, resetClock), event)) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    if (this.#stateMachine.currentName === STATE.HOW_TO_PLAY) {
+      if (this.#commands.handle?.(code === "Escape" || code === "KeyM" ? "menuTest" : "confirm", STATE.HOW_TO_PLAY, (next, resetClock = false) => this.#transition(next, resetClock), event)) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    if (this.#stateMachine.currentName === STATE.MENU && (code === "KeyH" || code === "KeyC" || code === "KeyS")) {
+      event.preventDefault();
+      this.#commands.handle?.("menuCommand", STATE.MENU, (next, resetClock = false) => this.#transition(next, resetClock), event);
+      return;
+    }
+
     const actions = this.#actionsForCode(code);
     if (actions.length === 0) return;
 
@@ -261,6 +281,10 @@ export class InputController {
     }
     if (currentState === STATE.GAME_OVER) {
       if (actionIncludes(actions, ACTION.RESTART_LEVEL)) { event.preventDefault(); command(ACTION.RESTART_LEVEL); return true; }
+      if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
+      if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
+    }
+    if (currentState === STATE.LEVEL_CLEAR) {
       if (actionIncludes(actions, ACTION.CONFIRM)) { event.preventDefault(); command(ACTION.CONFIRM); return true; }
       if (actionIncludes(actions, ACTION.MENU_TEST)) { event.preventDefault(); command(ACTION.MENU_TEST); return true; }
     }

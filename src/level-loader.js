@@ -16,7 +16,7 @@ const ENEMY_FACTORIES = Object.freeze({
   null: (data) => new NullBoss(data),
 });
 
-export function loadLevel(levelData, fighterId) {
+export function loadLevel(levelData, fighterId, options = {}) {
   const enemyFactory = ENEMY_FACTORIES[levelData.enemyType] ?? ((data) => new EnemyCombatant(data));
   const player = new FighterEntity({ fighterId, ...levelData.playerStart });
   const combat = new CombatSystem({
@@ -24,6 +24,7 @@ export function loadLevel(levelData, fighterId) {
     enemyData: levelData.enemy,
     enemyFactory,
     solids: levelData.arena.solids,
+    visorUnlocked: Boolean(options.visorUnlocked),
   });
   const physics = new PhysicsWorld();
   return {

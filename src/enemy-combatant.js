@@ -185,17 +185,35 @@ export class EnemyCombatant {
       facing: this.facing,
       targetPosition: { x: target.position.x, y: target.position.y - target.hurtBox.height / 2 },
       contactedTargets: new Set(),
+      extraWarningSec: 0,
     };
     this.#setPhase();
     this.onAttackStarted(this.attack, target);
   }
 
+  extendCurrentWarning(seconds) {
+    if (!this.attack || this.attack.phase !== "warning") return false;
+    this.attack.extraWarningSec = (this.attack.extraWarningSec ?? 0) + seconds;
+    this.#setPhase();
+    return true;
+  }
+
+  cancelCurrentAttack() {
+    if (!this.attack) return false;
+    const cancelled = this.attack;
+    this.attack = null;
+    this.onAttackFinished(cancelled);
+    return true;
+  }
+
   #setPhase() {
     const attack = this.attack;
+    if (!attack) return;
     const { startupSec, activeSec, recoverySec } = attack.data;
-    if (attack.elapsedSec < startupSec) attack.phase = "warning";
-    else if (attack.elapsedSec < startupSec + activeSec) attack.phase = "active";
-    else if (attack.elapsedSec < startupSec + activeSec + recoverySec) attack.phase = "recovery";
+    const effectiveStartup = startupSec + (attack.extraWarningSec ?? 0);
+    if (attack.elapsedSec < effectiveStartup) attack.phase = "warning";
+    else if (attack.elapsedSec < effectiveStartup + activeSec) attack.phase = "active";
+    else if (attack.elapsedSec < effectiveStartup + activeSec + recoverySec) attack.phase = "recovery";
     else attack.phase = "finished";
   }
 

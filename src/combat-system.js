@@ -22,6 +22,7 @@ import { EnemyCombatant } from "./enemy-combatant.js";
 import { Projectile } from "./projectile.js";
 import { playerClearsGroundHazard, renderSensorWarning } from "./laboratory-mechanics.js";
 import { renderFinalSweepWarning } from "./library-mechanics.js";
+import { VisorSystem, VISOR_STATE } from "./visor-system.js";
 
 const HUD_FONT = "bold 14px 'Courier New', monospace";
 const DEBUG_FONT = "12px 'Courier New', monospace";
@@ -80,13 +81,15 @@ export class CombatSystem {
   #projectiles = [];
   #events = [];
   #outcome = COMBAT_OUTCOME.IN_PROGRESS;
+  #visor;
 
-  constructor({ player, enemyData = TRAINING_DUMMY_DATA, enemyFactory = (data) => new EnemyCombatant(data), solids }) {
+  constructor({ player, enemyData = TRAINING_DUMMY_DATA, enemyFactory = (data) => new EnemyCombatant(data), solids, visorUnlocked = false }) {
     this.player = player;
     this.#playerCombatant = createPlayerCombatant(player.fighterId);
     this.#enemy = enemyFactory(enemyData);
     this.#solids = solids;
     this.playerAttackDamage = PLAYER_ATTACKS.normal.damageByFighter[player.fighterId];
+    this.#visor = new VisorSystem({ unlocked: Boolean(visorUnlocked) });
   }
 
   get playerCombatant() { return this.#playerCombatant; }
@@ -95,6 +98,7 @@ export class CombatSystem {
   get playerAttack() { return this.#playerAttack; }
   get specialCooldownRemainingSec() { return this.#specialCooldownRemainingSec; }
   get outcome() { return this.#outcome; }
+  get visor() { return this.#visor; }
 
   get snapshot() {
     const attackView = (attack) => attack
@@ -134,6 +138,7 @@ export class CombatSystem {
         y: projectile.position.y,
         lifetimeRemainingSec: projectile.lifetimeRemainingSec,
       }))),
+      visor: this.#visor.snapshot,
     });
   }
 
@@ -148,6 +153,18 @@ export class CombatSystem {
       this.#specialAttack.remainingSec -= dt;
       if (this.#specialAttack.remainingSec <= 0) this.#specialAttack = null;
     }
+
+    if (actions.visor?.pressed) {
+      const activated = this.#visor.requestActivation(this.#enemy);
+      if (activated) {
+        this.#emit("visorRevealed", {
+          patternId: this.#visor.patternId,
+          predictionKind: this.#visor.predictionKind,
+          attackInstanceId: this.#visor.attackInstanceId,
+        });
+      }
+    }
+
     const previousEnemyAttackId = this.#enemy.attack?.id;
     const enemyActions = this.#enemy.update(dt, this.#playerCombatant.hp > 0 ? this.player : this.#enemy);
     if (!previousEnemyAttackId && this.#enemy.attack) {
@@ -160,6 +177,8 @@ export class CombatSystem {
     for (const action of enemyActions) {
       if (action.kind === "patternProjectile") this.#fireEnemyProjectile(action.attack);
     }
+
+    this.#visor.update(dt, this.#enemy);
 
     const specialStarted = this.#startSpecial(actions.specialTap.pressed);
     if (!specialStarted) this.#startPlayerAttack(actions.normalAttack.pressed);
@@ -177,6 +196,7 @@ export class CombatSystem {
     if (this.#enemy.hp <= 0) this.#outcome = COMBAT_OUTCOME.PLAYER_VICTORY;
     else if (this.#playerCombatant.hp <= 0) this.#outcome = COMBAT_OUTCOME.PLAYER_DEFEAT;
     if (this.#outcome !== COMBAT_OUTCOME.IN_PROGRESS) {
+      this.#visor.onFightFinished();
       this.#emit("combatFinished", { outcome: this.#outcome });
     }
   }
@@ -187,6 +207,7 @@ export class CombatSystem {
     this.#events = [];
     if (this.#enemy.hp <= 0) this.#outcome = COMBAT_OUTCOME.PLAYER_VICTORY;
     else this.#outcome = COMBAT_OUTCOME.PLAYER_DEFEAT;
+    this.#visor.onFightFinished();
     this.#emit("combatFinished", { outcome: this.#outcome, reason: "time-limit" });
     return this.#outcome;
   }
@@ -325,6 +346,54 @@ export class CombatSystem {
   renderHud(ctx) {
     this.#drawHealthBar(ctx, PLAYER_BAR_X, this.player.fighterId.toUpperCase(), this.#playerCombatant.hp, this.#playerCombatant.maxHp, PLAYER_HEALTH_COLOR, "left");
     this.#drawHealthBar(ctx, ENEMY_BAR_X, (this.#enemy.data.name ?? "MUÑECO").toUpperCase(), this.#enemy.hp, this.#enemy.maxHp, ENEMY_HEALTH_COLOR, "right");
+    this.#drawVisorHud(ctx);
+  }
+
+  #drawVisorHud(ctx) {
+    const visor = this.#visor.snapshot;
+    const badgeX = LOGICAL_WIDTH / 2;
+    const badgeY = BAR_Y + 7;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 12px 'Courier New', monospace";
+
+    if (visor.visorState === VISOR_STATE.LOCKED) {
+      ctx.fillStyle = "rgba(29, 41, 57, 0.85)";
+      ctx.fillRect(badgeX - 110, badgeY - 10, 220, 20);
+      ctx.strokeStyle = "#475467";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(badgeX - 110, badgeY - 10, 220, 20);
+      ctx.fillStyle = "#98a2b3";
+      ctx.fillText("VISOR NO DESCUBIERTO", badgeX, badgeY);
+    } else if (visor.visorState === VISOR_STATE.READY) {
+      ctx.fillStyle = "rgba(16, 52, 66, 0.95)";
+      ctx.fillRect(badgeX - 110, badgeY - 10, 220, 20);
+      ctx.strokeStyle = "#47d7c8";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(badgeX - 110, badgeY - 10, 220, 20);
+      ctx.fillStyle = "#83eaff";
+      ctx.fillText("🧭 VISOR LISTO [E]", badgeX, badgeY);
+    } else if (visor.visorState === VISOR_STATE.PENDING || visor.visorState === VISOR_STATE.REVEALING) {
+      ctx.fillStyle = "rgba(45, 34, 12, 0.95)";
+      ctx.fillRect(badgeX - 180, badgeY - 10, 360, 22);
+      ctx.strokeStyle = "#ffca6a";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(badgeX - 180, badgeY - 10, 360, 22);
+      ctx.fillStyle = "#ffe4a0";
+      const prefix = visor.predictionKind === "current" ? "ACTUAL" : "PRÓXIMO";
+      const text = `${prefix}: ${visor.responseText ?? visor.patternId}`;
+      ctx.fillText(text.slice(0, 48), badgeX, badgeY);
+    } else if (visor.visorState === VISOR_STATE.USED) {
+      ctx.fillStyle = "rgba(29, 41, 57, 0.85)";
+      ctx.fillRect(badgeX - 110, badgeY - 10, 220, 20);
+      ctx.strokeStyle = "#344054";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(badgeX - 110, badgeY - 10, 220, 20);
+      ctx.fillStyle = "#667085";
+      ctx.fillText("VISOR USADO", badgeX, badgeY);
+    }
+    ctx.restore();
   }
 
   renderDebug(ctx) {

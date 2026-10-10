@@ -48,6 +48,16 @@ if (!context) {
   );
   input.connect({ stateMachine, clock, loop, commands: states.commands });
 
+  const btnVisor = document.querySelector("#btn-visor");
+  if (btnVisor) {
+    btnVisor.addEventListener("click", () => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyE", key: "e" }));
+      setTimeout(() => {
+        window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyE", key: "e" }));
+      }, 50);
+    });
+  }
+
   const resize = () => fitCanvas(canvas, context);
   window.addEventListener("resize", resize);
   input.mount();
