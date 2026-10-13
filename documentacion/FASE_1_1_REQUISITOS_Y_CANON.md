@@ -14,7 +14,7 @@
 | C-02 | HTML, CSS y JavaScript; librerías sólo si aportan valor | Creador; confirmado | Arquitectura | Juego en navegador; dependencia externa declarada y justificada. |
 | C-03 | Tres estudiantes seleccionables | Creador; confirmado | Campaña, UI | Se elige exactamente uno de tres para luchar. |
 | C-04 | WASD, R para golpe y Shift para habilidad | Creador; confirmado | Entrada, combate | Las teclas tienen respuesta en combate; la asignación específica de W/S se documenta como diseño. |
-| C-05 | Cuatro lugares en orden: estacionamiento, cancha, laboratorio de química, biblioteca | Carpetas `img/nivel 1` a `img/nivel 4`; confirmado | Campaña, niveles | Sólo se avanza 1 → 2 → 3 → 4 tras vencer. |
+| C-05 | Cuatro lugares en orden: estacionamiento, cancha, laboratorio de química, biblioteca | Carpetas `referencias-visuales/originales/nivel 1` a `referencias-visuales/originales/nivel 4`; confirmado | Campaña, niveles | Sólo se avanza 1 → 2 → 3 → 4 tras vencer. |
 | C-06 | Jefe 1 mascota de la UJCV y jefe 4 IA; crear jefes 2 y 3 | Creador; confirmado | Diseño, narrativa | Un jefe correspondiente en cada arena. |
 | C-07 | Tres intentos para la campaña | Creador; confirmado | Campaña | La tercera derrota termina en Game Over. |
 | C-08 | Superar rivales y vencer al jefe final | Creador; confirmado | Campaña | La victoria ocurre tras vencer al cuarto jefe. |

@@ -1,6 +1,6 @@
 # Chilos Fighters — arenas y combate
 
-**Estado:** propuesta de diseño para producción. Respeta los cuatro niveles, personajes, jefes y controles de [DOCUMENTACION.md](DOCUMENTACION.md). Los valores numéricos son iniciales y se ajustarán cuando se pueda jugar una campaña completa.
+**Estado:** reglas base del combate y valores iniciales de la implementación. Respeta los cuatro niveles, personajes, jefes y controles de [DOCUMENTACION.md](DOCUMENTACION.md). La IA vigente, sus probabilidades y los combos se detallan en [IA_JEFES_Y_BALANCE.md](IA_JEFES_Y_BALANCE.md); los números seguirán sujetos a ajuste al jugar una campaña completa.
 
 ## Reglas comunes
 
@@ -10,16 +10,16 @@
 - **Fondo:** los cuatro escenarios finales deben ser pixel art, según el requisito confirmado por el creador. Las fotos del campus son referencias; los objetos reales que aparecen en ellas no generan colisiones por sí mismos.
 - **Lectura de ataques:** toda amenaza muestra nombre, señal visual y sonido opcional antes del daño. El aviso permanece visible también con sonido desactivado. Un mismo ataque sólo puede golpear una vez.
 - **Defensa:** `S` inmoviliza y reduce un 70 % el daño frontal o de proyectiles; no evita zonas de suelo. `W` permite un salto: los sensores de suelo no aciertan con los pies fuera del suelo, mientras los rasantes y carreras exigen al menos 30 px de despeje. El barrido final de NULL sólo se evita con el cuerpo completo en la franja SEGURA, incluso al saltar. Alejarse evita ataques de corto alcance.
-- **Golpe normal:** `R` alcanza 100 px hacia el jefe; tiene 0,12 s activos y 0,35 s entre usos. Conserva el daño por personaje de la tabla principal. Tras recibir daño, el estudiante tiene 0,45 s de invulnerabilidad; el jefe usa identificadores de ataque para impedir contactos duplicados sin anular los tres proyectiles de Nadia.
+- **Golpe normal:** `R` alcanza 100 px hacia el jefe; el ciclo dura 0,62 s (0,06 s de inicio, 0,14 s activo y 0,42 s de recuperación). Conserva el daño por personaje de la tabla principal. Tras recibir daño, el estudiante tiene 0,45 s de invulnerabilidad; cada proyectil de Nadia conserva su propio contacto.
 - **Puntuación:** un golpe normal acertado suma 10 puntos; una habilidad especial acertada suma 25 por activación, aunque tenga varios proyectiles. Los puntos de un intento perdido se descartan.
 
 ### Habilidades especiales iniciales
 
-| Estudiante | Efecto propuesto de Shift | Alcance | Enfriamiento |
+| Estudiante | Efecto de Shift | Alcance | Enfriamiento |
 |---|---|---:|---:|
-| Alma | Pulso de circuito: 18 de daño e interrumpe un ataque durante su aviso. | 165 px | 8 s |
-| Diego | Carga Chila: avanza hasta 110 px, causa 24 de daño y reduce un 60 % el daño recibido durante el avance. | 120 px tras avanzar | 10 s |
-| Nadia | Ráfaga de notas: tres proyectiles de 6 de daño cada uno; cada proyectil puede golpear una vez. | 220 px | 7 s |
+| Alma | Pulso de circuito: 22 de daño e interrumpe un ataque durante su aviso. | 165 px | 8 s |
+| Diego | Carga Chila: avanza hasta 110 px, causa 28 de daño y reduce un 60 % el daño recibido durante el avance. | 120 px tras avanzar | 10 s |
+| Nadia | Ráfaga de notas: tres proyectiles de 8, 7 y 7 de daño; cada proyectil puede golpear una vez. | 220 px | 7 s |
 
 ## Plano funcional de las cuatro arenas
 
@@ -36,31 +36,35 @@ Las coordenadas son de juego, no una afirmación sobre la disposición exacta de
 
 **Términos:** *aviso* = tiempo para reconocer la señal; *activo* = intervalo en que puede causar daño; *recuperación* = pausa antes del siguiente movimiento. Los daños se aplican antes de la reducción por defensa. Cada jefe respeta la vida y el límite de tiempo de [DOCUMENTACION.md](DOCUMENTACION.md).
 
-| Jefe y ataque | Aviso | Activo | Recuperación | Daño | Alcance o zona | Respuesta esperada |
+| Jefe y ataque | Aviso | Activo del patrón | Recuperación | Daño | Alcance o zona | Respuesta esperada |
 |---|---:|---:|---:|---:|---|---|
-| Chilo — Aletazo frontal | 1,15 s | 0,18 s | 0,65 s | 12 | 125 px delante | Retroceder o cubrirse para reducir daño. |
-| Chilo — Salto anunciado | 1,00 s | 0,25 s al caer | 0,85 s | 16 | Círculo de **100 px de diámetro** marcado bajo la caída | Salir de la sombra antes de que caiga. |
-| Vera — Bote de retorno | 0,80 s | Hasta que el balón sale de la arena tras un rebote | 0,65 s | 15 | Proyectil rasante a 260 px/s | Saltar sobre su ida y su regreso, o cubrirse para reducir daño. |
-| Vera — Carrera de línea | 0,95 s | 0,40 s | 0,75 s | 20 | Franja recta marcada desde Vera | Saltar cuando se ilumina la línea. |
-| CÁTODO-3 — Pulso de luz | 0,85 s | Hasta que el pulso sale de la arena | 0,70 s | 16 | Esfera a 200 px/s | Saltar sobre el pulso o cubrirse para reducir daño. |
-| CÁTODO-3 — Barrido de sensores | 1,15 s | 0,50 s | 0,80 s | 19 | Una de las dos franjas del laboratorio | Entrar en una franja apagada o saltar. |
-| NULL — Eco de Chilo | 1,20 s | 0,20 s | 0,55 s | 18 | 135 px delante | Reconocer el gesto de Chilo y retroceder. |
-| NULL — Eco de Vera | 0,90 s | 0,40 s | 0,60 s | 19 | Línea rasante marcada | Saltar como en la cancha. |
-| NULL — Eco de CÁTODO-3 | 1,15 s | 0,50 s | 0,65 s | 20 | Franja de sensor marcada | Cambiar a la franja apagada o saltar. |
-| NULL — Barrido final | 1,50 s | 0,60 s | 0,90 s | 24 | Columna de juego salvo la franja segura visible | Entrar con el cuerpo completo en la franja indicada antes de la activación; saltar fuera de ella no evita daño. |
+| Chilo — Aletazo frontal | 0,88 s | 0,20 s | 0,56 s | 16 | 125 px delante | Retroceder o cubrirse para reducir daño. |
+| Chilo — Salto anunciado | 0,80 s | 0,24 s al caer | 0,62 s | 20 | Círculo de 112 px marcado bajo la caída | Salir del círculo antes de que caiga. |
+| Chilo — Envión rompeguardia | 0,78 s | 0,22 s | 0,62 s | 22 | Golpe frontal de 142 px que avanza durante el aviso | Esquivar; la guardia no reduce este ataque. |
+| Chilo — Picado de cresta (fase 2) | 0,72 s | 0,24 s al caer | 0,62 s | 24 | Círculo de 132 px marcado bajo la caída | Salir del círculo antes de que caiga. |
+| Vera — Bote de retorno | 0,66 s | 0,01 s de emisión | 0,50 s | 18 | Proyectil rasante a 260 px/s; vida independiente tras salir | Saltar sobre ida y regreso o cubrirse para reducir daño. |
+| Vera — Carrera de línea | 0,76 s | 0,36 s | 0,56 s | 23 | Franja recta marcada desde Vera | Saltar cuando se ilumina la línea. |
+| Vera — Pase a media altura | 0,76 s | 0,01 s de emisión | 0,55 s | 21 | Proyectil dirigido a la altura del jugador al iniciar el aviso | Cambiar de posición o cubrirse. |
+| Vera — Remate de línea (fase 2) | 0,72 s | 0,20 s | 0,62 s | 25 | Golpe frontal rompeguardia | Esquivar antes de que termine el aviso. |
+| CÁTODO-3 — Pulso de luz | 0,66 s | 0,10 s de emisión | 0,50 s | 19 | Esfera rasante a 200 px/s; vuelo independiente | Saltar sobre el pulso o cubrirse para reducir daño. |
+| CÁTODO-3 — Pulso de sobrecarga | 0,95 s | 0,10 s de emisión | 0,68 s | 25 | Esfera rasante a 245 px/s; vuelo independiente | Saltar o cubrirse; su trayectoria se anuncia antes del disparo. |
+| CÁTODO-3 — Sensor izquierdo o derecho | 0,88 s | 0,44 s | 0,58 s | 22 | Una franja del laboratorio | Entrar en una franja apagada o saltar. |
+| CÁTODO-3 — Descarga de proximidad (fase 2) | 0,68 s | 0,20 s | 0,64 s | 26 | Golpe frontal rompeguardia | Mantener distancia o esquivar durante el aviso. |
+| NULL — Eco de Chilo | 0,88 s | 0,18 s | 0,42 s | 21 | 135 px delante; rompeguardia | Esquivar antes del impacto. |
+| NULL — Eco de Vera | 0,72 s | 0,34 s | 0,46 s | 22 | Línea rasante marcada | Saltar como en la cancha. |
+| NULL — Eco de CÁTODO-3 | 0,82 s | 0,42 s | 0,48 s | 23 | Franja de sensor marcada | Cambiar a la franja apagada o saltar. |
+| NULL — Barrido final (fase 2) | 1,22 s | 0,55 s | 0,65 s | 28 | Toda la franja salvo la zona segura visible | Entrar con el cuerpo completo en la franja indicada; saltar no evita daño. |
+| NULL — Sello de memoria (fase 2) | 0,92 s | 0,24 s | 0,58 s | 25 | Círculo de 148 px | Salir del círculo antes de la activación. |
+
+Los proyectiles se emiten al terminar el aviso y conservan su propio ciclo de vida. El valor activo de 0,01–0,10 s describe la ventana de emisión del patrón, no el tiempo que tarda el proyectil en cruzar la arena.
 
 ### Orden y ritmo de los ataques
 
-| Jefe | Secuencia inicial | Pausa entre ataques | Cambio de fase |
-|---|---|---:|---|
-| Chilo | Aletazo → salto → repetir | 2,4 s | Ninguno; el primer aletazo sirve de tutorial. |
-| Vera | Bote → carrera → repetir | 2,1 s | Ninguno; el balón siempre rebota una vez. |
-| CÁTODO-3 | Pulso → barrido izquierdo → pulso → barrido derecho | 1,9 s | Ninguno; nunca activa las dos franjas a la vez. |
-| NULL | Eco de Chilo → Vera → CÁTODO-3 → repetir | 1,8 s | Al llegar a 80 de 160 de vida, añade el barrido final después de cada tres ecos y reduce la pausa a 1,5 s. |
+Cada jefe conserva su ataque inicial para enseñar la arena. Después elige entre sus patrones disponibles con pesos que cambian según distancia, guardia, salto reciente y avance del jugador; evita repetir los dos últimos patrones cuando existe otra opción. Hay una probabilidad limitada de que un ataque habilite **un solo seguimiento de combo**, con aviso propio y una pausa menor. El daño de combo se calcula con el multiplicador configurado para ese jefe.
 
-El tiempo de *pausa entre ataques* comienza después de la recuperación. NULL nunca encadena un eco y el barrido final sin mostrar dos avisos separados. Si el Visor GUÍA está activo, su predicción debe coincidir con el siguiente ataque de esta secuencia.
+El tiempo normal entre ataques parte de la pausa de la ficha y recibe una variación pequeña para que el ritmo no sea idéntico en cada ciclo. Las señales permanecen visibles durante los avisos y el Visor GUÍA consulta el ataque que la IA ya dejó planificado.
 
-Cuando NULL llega a 80 de vida durante un aviso o ataque, termina esa acción y su recuperación antes de cambiar de fase. A continuación inicia una nueva secuencia de tres ecos y barrido final. Al iniciar cada barrido se fija el lado seguro alcanzable más cercano; no cambia durante el aviso. El Visor actualiza su predicción a la secuencia real si estaba pendiente, sin gastar otra carga.
+La vida y los umbrales de fase son: Chilo 100/62, Vera 136/82, CÁTODO-3 164/98 y NULL 204/108. Al cruzar el umbral, cada jefe termina su patrón en curso y luego avanza; anuncia la transición y abre su lista de fase 2. NULL incorpora el barrido y el Sello de memoria. Al iniciar cada barrido se fija el lado seguro alcanzable más cercano, que no cambia durante el aviso. El Visor actualiza su predicción a la secuencia planificada sin gastar otra carga.
 
 ## Revisión de balance prevista
 

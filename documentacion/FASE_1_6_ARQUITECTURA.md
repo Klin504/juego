@@ -1,3 +1,5 @@
+> **Estado del documento:** contrato de arquitectura propuesto durante la fase 1.6. Para ver la estructura y rutas que existen hoy, consulta [ARQUITECTURA_DEL_CODIGO.md](ARQUITECTURA_DEL_CODIGO.md).
+
 # Fase 1.6 — arquitectura, glosario y contratos
 
 **Estado:** propuesta documental para la futura primera versión 2D; no hay módulos implementados. Consolida [combate y datos](FASE_1_2_COMBATE_Y_DATOS.md), [arenas](FASE_1_3_FICHAS_ARENAS.md), [pantallas](FASE_1_4_PANTALLAS_Y_ESCENAS.md) y [Visor](FASE_1_5_ARCHIVO_Y_VISOR.md). Se favorecen módulos ES de JavaScript, Canvas 2D y DOM semántico, sin dependencia externa inicial. Los nombres/rutas son contratos propuestos, no archivos existentes.

@@ -1,8 +1,9 @@
+/* Presentación del contenedor, lienzo pixel art y mensajes de interfaz HTML. */
 :root {
   color-scheme: dark;
   font-family: "Courier New", monospace;
-  background: #101622;
-  color: #f2f4f8;
+  background: #0b101e;
+  color: #f4ecdb;
 }
 
 * {
@@ -15,7 +16,7 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #101622;
+  background: #0b101e;
 }
 
 body {
@@ -23,6 +24,7 @@ body {
   min-height: 0;
 }
 
+/* Mantiene avisos accesibles para lectores de pantalla fuera del área visible. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -37,13 +39,15 @@ body {
 
 .screen-warning {
   display: none;
-  background: #2a1b18;
-  color: #ffca6a;
-  padding: 0.5rem 1rem;
+  position: fixed;
+  inset: 0 0 auto;
+  background: #30271f;
+  color: #ffd37b;
+  padding: 0.65rem 1rem;
   text-align: center;
-  font-size: 0.85rem;
-  border-bottom: 2px solid #ff7682;
-  z-index: 100;
+  font-size: 0.8rem;
+  border-bottom: 3px solid #ffd37b;
+  z-index: 50;
 }
 
 @media (max-width: 768px), (orientation: portrait) {
@@ -52,6 +56,7 @@ body {
   }
 }
 
+/* Centra el lienzo y coloca una cuadrícula decorativa detrás del juego. */
 .game-shell {
   position: relative;
   display: grid;
@@ -60,52 +65,82 @@ body {
   height: 100dvh;
   place-items: center;
   overflow: hidden;
-  background: #101622;
+  background-color: #0b101e;
+  background-image:
+    linear-gradient(#172339 2px, transparent 2px),
+    linear-gradient(90deg, #172339 2px, transparent 2px);
+  background-size: 48px 48px;
 }
 
+/* El escalado conserva bloques de píxeles sin interpolación. */
 #arena {
   display: block;
   flex: none;
   max-width: 100%;
   max-height: 100%;
   image-rendering: pixelated;
+  box-shadow: 0 0 0 4px #294657, 0 16px 0 #050a12, 0 24px 48px #050a12;
   outline: none;
 }
 
+/* Sitúa los controles HTML sobre el borde superior del Canvas. */
 .hud-actions {
   position: absolute;
-  top: 12px;
-  right: 18px;
+  top: max(12px, calc((100dvh - min(100dvh, 56.25vw)) / 2 + 12px));
+  left: 50%;
+  width: min(100vw, 177.777dvh);
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
+  padding-right: 12px;
+  transform: translateX(-50%);
   z-index: 10;
+  pointer-events: none;
 }
 
 .btn-visor {
-  background: rgba(16, 52, 66, 0.9);
-  color: #83eaff;
-  border: 2px solid #47d7c8;
-  border-radius: 4px;
-  padding: 6px 12px;
+  background: #14283d;
+  color: #72e4df;
+  border: 2px solid #72e4df;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #07111d;
+  padding: 5px 10px 5px 5px;
   font-family: "Courier New", monospace;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: bold;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
+  pointer-events: auto;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.btn-visor[hidden] {
+  display: none;
 }
 
 .btn-visor:hover {
-  background: rgba(30, 80, 95, 0.95);
-  border-color: #83eaff;
+  background: #244b58;
+  color: #f4ecdb;
 }
 
 .btn-visor:active {
-  transform: scale(0.96);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #07111d;
 }
 
 .btn-visor:focus-visible {
-  outline: 3px solid #ffca6a;
-  outline-offset: 2px;
+  outline: 3px solid #ffd37b;
+  outline-offset: 3px;
+}
+
+.visor-key {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  margin-right: 7px;
+  color: #0b101e;
+  background: #72e4df;
 }
 
 .canvas-error {
@@ -115,7 +150,7 @@ body {
   margin: auto;
   padding: 1rem;
   border: 2px solid #ffb86b;
-  background: #101622;
+  background: #0b101e;
   color: #fff;
   line-height: 1.5;
 }

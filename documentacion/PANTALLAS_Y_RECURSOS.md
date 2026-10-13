@@ -43,7 +43,7 @@ La línea que pronuncia el luchador elegido se puede tomar de las líneas finale
 | NULL | Núcleo geométrico violeta con bordes cian, sin rostro humano; cambia de contorno al pasar a la segunda fase. | Nombre y motivo documentados; falta diseño original de combate. |
 | Arenas | Cuatro fondos de 960 × 540 con una zona central despejada y señales sobre una capa separada. | Hay fotos y capturas; faltan fondos finales. |
 
-**Guía inicial de sprites:** reservar cajas de hasta 64 × 96 píxeles lógicos para estudiantes y hasta 96 × 112 para jefes, con variación si la silueta lo necesita. Cada luchador requiere reposo, movimiento, salto, golpe, especial, daño y derrota. Registrar para cada archivo su autor, origen, permiso de uso, versión y estado. Estas dimensiones son una guía de legibilidad, no un límite del dibujo final.
+**Hojas de sprites integradas:** cada luchador y jefe usa una celda transparente de 128 × 160 píxeles con ocho poses compartidas (reposo, andar, salto, cobertura, golpe, especial/ataque, daño y derrota). En combate se muestran aproximadamente a 100 × 126 para estudiantes y 116 × 146 para jefes, sin suavizado. El tamaño visible se ajusta por silueta y resolución lógica; no debe comprimir el sprite ni ocultar avisos o barras. Registrar dimensiones, autor, origen, permiso de uso, versión y estado en el manifiesto.
 
 ## Sonido y señales accesibles
 

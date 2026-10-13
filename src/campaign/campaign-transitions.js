@@ -1,0 +1,17 @@
+/** Decide la pantalla siguiente según el resultado de campaña. */
+
+import { STATE } from "../core/constants.js";
+
+// La máquina de estados consulta esta lista antes de permitir un cambio de pantalla.
+export const VALID_STATE_TRANSITIONS = new Map([
+  [STATE.MENU, new Set([STATE.SELECT_FIGHTER, STATE.HOW_TO_PLAY, STATE.ARCHIVE])],
+  [STATE.HOW_TO_PLAY, new Set([STATE.MENU, STATE.ARCHIVE])],
+  [STATE.ARCHIVE, new Set([STATE.HOW_TO_PLAY, STATE.MENU])],
+  [STATE.SELECT_FIGHTER, new Set([STATE.LEVEL_INTRO, STATE.MENU])],
+  [STATE.LEVEL_INTRO, new Set([STATE.PLAYING, STATE.SELECT_FIGHTER])],
+  [STATE.PLAYING, new Set([STATE.PAUSED, STATE.GAME_OVER, STATE.LEVEL_CLEAR, STATE.VICTORY])],
+  [STATE.PAUSED, new Set([STATE.PLAYING, STATE.MENU, STATE.GAME_OVER])],
+  [STATE.LEVEL_CLEAR, new Set([STATE.LEVEL_INTRO, STATE.MENU])],
+  [STATE.GAME_OVER, new Set([STATE.MENU, STATE.SELECT_FIGHTER, STATE.LEVEL_INTRO])],
+  [STATE.VICTORY, new Set([STATE.LEVEL_INTRO, STATE.SELECT_FIGHTER, STATE.MENU])],
+]);

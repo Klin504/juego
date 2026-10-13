@@ -38,7 +38,7 @@ Este archivo resume los requisitos del creador. El diseño detallado está en [D
 - Las fotos y capturas ya recibidas se usan como referencias para crear fondos pixel art que conserven los rasgos de cada lugar.
 - El easter egg se ha desarrollado como **Visor GUÍA**: cuatro folios del Archivo forman una palabra que lo desbloquea. Su contenido y reglas están en [EASTER_EGG.md](EASTER_EGG.md).
 
-Estas propuestas están marcadas para revisión en [DOCUMENTACION.md](DOCUMENTACION.md). La mención inicial de tres niveles se actualizó a **cuatro** y el orden se corrigió según los nombres de las carpetas `img/nivel 1/` a `img/nivel 4/`.
+Estas propuestas están marcadas para revisión en [DOCUMENTACION.md](DOCUMENTACION.md). La mención inicial de tres niveles se actualizó a **cuatro** y el orden se corrigió según los nombres de las carpetas `referencias-visuales/originales/nivel 1/` a `referencias-visuales/originales/nivel 4/`.
 
 Las decisiones de detalle delegadas al diseño están en [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md) y [PANTALLAS_Y_RECURSOS.md](PANTALLAS_Y_RECURSOS.md). Son propuestas de producción, no requisitos originalmente confirmados por el creador.
 

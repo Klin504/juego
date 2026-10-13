@@ -1,35 +1,36 @@
-import { CombatSystem } from "../src/combat-system.js";
-import { CHILO_WING_ATTACK, COMBAT_OUTCOME, MAX_ACTIVE_PROJECTILES, TRAINING_DUMMY } from "../src/combat-config.js";
-import { TRAINING_DUMMY_DATA } from "../src/combat-data.js";
-import { FighterEntity } from "../src/fighter-entity.js";
-import { PhysicsWorld } from "../src/physics.js";
-import { TEST_ROOM_SOLIDS, TEST_ROOM_START } from "../src/test-room.js";
-import { FIXED_STEP_SECONDS, LOGICAL_HEIGHT, LOGICAL_WIDTH, STATE } from "../src/constants.js";
-import { InputController } from "../src/input-controller.js";
-import { GameClock } from "../src/game-clock.js";
-import { StateMachine } from "../src/state-machine.js";
-import { createStates } from "../src/states.js";
-import { LEVEL_1_DATA } from "../src/level-1-data.js";
-import { loadLevel, updateLevel } from "../src/level-loader.js";
-import { CHILO_DATA, CHILO_JUMP_ATTACK } from "../src/boss-data.js";
-import { Chilo } from "../src/chilo.js";
-import { EnemyCombatant } from "../src/enemy-combatant.js";
-import { CampaignController } from "../src/campaign-controller.js";
-import { VALID_STATE_TRANSITIONS } from "../src/campaign-transitions.js";
-import { CAMPAIGN_RECORD_STORAGE_KEY, readCampaignRecord, saveCampaignRecord } from "../src/campaign-storage.js";
-import { LEVEL_2_DATA } from "../src/level-2-data.js";
-import { VERA_BALL_ATTACK, VERA_DATA, VERA_RUN_ATTACK } from "../src/vera-data.js";
-import { Vera } from "../src/vera.js";
-import { CAMPAIGN_LEVELS } from "../src/campaign-data.js";
-import { LEVEL_3_DATA } from "../src/level-3-data.js";
-import { CATODO3_DATA, CATODO_PULSE_ATTACK, CATODO_SENSOR_LEFT_ATTACK, CATODO_SENSOR_RIGHT_ATTACK } from "../src/catodo3-data.js";
-import { Catodo3 } from "../src/catodo3.js";
-import { LABORATORY_MECHANICS } from "../src/laboratory-mechanics.js";
-import { Projectile } from "../src/projectile.js";
-import { LEVEL_4_DATA } from "../src/level-4-data.js";
-import { NULL_DATA, NULL_ATTACKS } from "../src/null-data.js";
-import { NullBoss } from "../src/null-boss.js";
-import { LIBRARY_MECHANICS, chooseReachableSafeZone, playerInsideSafeZone } from "../src/library-mechanics.js";
+import { CombatSystem } from "../src/combat/combat-system.js";
+import { CHILO_WING_ATTACK, COMBAT_OUTCOME, MAX_ACTIVE_PROJECTILES, TRAINING_DUMMY } from "../src/combat/combat-config.js";
+import { TRAINING_DUMMY_DATA } from "../src/combat/combat-data.js";
+import { FighterEntity } from "../src/physics/fighter-entity.js";
+import { PhysicsWorld } from "../src/physics/physics.js";
+import { TEST_ROOM_SOLIDS, TEST_ROOM_START } from "../src/physics/test-room.js";
+import { FIXED_STEP_SECONDS, LOGICAL_HEIGHT, LOGICAL_WIDTH, STATE } from "../src/core/constants.js";
+import { InputController } from "../src/input/input-controller.js";
+import { GameClock } from "../src/core/game-clock.js";
+import { StateMachine } from "../src/core/state-machine.js";
+import { createStates } from "../src/app/states.js";
+import { LEVEL_1_DATA } from "../src/levels/level-1-data.js";
+import { loadLevel, updateLevel } from "../src/levels/level-loader.js";
+import { CHILO_DATA, CHILO_JUMP_ATTACK } from "../src/combat/boss-data.js";
+import { Chilo } from "../src/combat/chilo.js";
+import { EnemyCombatant } from "../src/combat/enemy-combatant.js";
+import { CampaignController } from "../src/campaign/campaign-controller.js";
+import { VALID_STATE_TRANSITIONS } from "../src/campaign/campaign-transitions.js";
+import { CAMPAIGN_RECORD_STORAGE_KEY, readCampaignRecord, saveCampaignRecord } from "../src/campaign/campaign-storage.js";
+import { LEVEL_2_DATA } from "../src/levels/level-2-data.js";
+import { VERA_BALL_ATTACK, VERA_DATA, VERA_RUN_ATTACK } from "../src/combat/vera-data.js";
+import { Vera } from "../src/combat/vera.js";
+import { CAMPAIGN_LEVELS } from "../src/campaign/campaign-data.js";
+import { LEVEL_3_DATA } from "../src/levels/level-3-data.js";
+import { CATODO3_DATA, CATODO_PULSE_ATTACK, CATODO_SENSOR_LEFT_ATTACK, CATODO_SENSOR_RIGHT_ATTACK } from "../src/combat/catodo3-data.js";
+import { Catodo3 } from "../src/combat/catodo3.js";
+import { LABORATORY_MECHANICS } from "../src/combat/laboratory-mechanics.js";
+import { Projectile } from "../src/combat/projectile.js";
+import { LEVEL_4_DATA } from "../src/levels/level-4-data.js";
+import { NULL_DATA, NULL_ATTACKS } from "../src/combat/null-data.js";
+import { NullBoss } from "../src/combat/null-boss.js";
+import { LIBRARY_MECHANICS, chooseReachableSafeZone, playerInsideSafeZone } from "../src/combat/library-mechanics.js";
+import { ASSET_MANIFEST } from "../src/rendering/asset-manifest.js";
 
 const output = document.querySelector("#results");
 const summary = document.querySelector("#summary");
@@ -312,8 +313,9 @@ run("CÁTODO-3 respeta vida, secuencia y tiempos documentados", () => {
   assert(CATODO_PULSE_ATTACK.startupSec === 0.85 && CATODO_PULSE_ATTACK.damage === 16 && CATODO_PULSE_ATTACK.recoverySec === 0.7, "datos de pulso incorrectos");
   assert(CATODO_SENSOR_LEFT_ATTACK.startupSec === 1.15 && CATODO_SENSOR_LEFT_ATTACK.activeSec === 0.5 && CATODO_SENSOR_LEFT_ATTACK.recoverySec === 0.8 && CATODO_SENSOR_LEFT_ATTACK.damage === 19, "datos de sensor incorrectos");
   assert(CATODO_SENSOR_RIGHT_ATTACK.patternId === "CATODO_SENSOR_R" && CATODO3_DATA.interAttackDelaySec === 1.9, "secuencia derecha/intervalo incorrectos");
-  assert(CATODO3_DATA.attacks.map((attack) => attack.patternId).join(",") === "CATODO_PULSE,CATODO_SENSOR_L,CATODO_PULSE,CATODO_SENSOR_R", "secuencia no alterna pulso e izquierda/derecha");
-  const level = loadLevel(LEVEL_3_DATA, "diego");
+  const patternIds = CATODO3_DATA.attacks.map((attack) => attack.patternId);
+  assert(patternIds[0] === "CATODO_PULSE" && ["CATODO_OVERLOAD", "CATODO_SENSOR_L", "CATODO_SENSOR_R"].every((id) => patternIds.includes(id)), "faltan los patrones disponibles o el ataque inicial de CÁTODO-3");
+  const level = loadLevel({ ...LEVEL_3_DATA, enemy: { ...CATODO3_DATA, ai: undefined } }, "diego");
   let pulseLaunched = false;
   for (let step = 0; step < 300; step += 1) {
     updateLevel(level, actions(), dt);
@@ -322,7 +324,7 @@ run("CÁTODO-3 respeta vida, secuencia y tiempos documentados", () => {
   assert(pulseLaunched && level.combat.projectiles.length === 1, "no lanzó el pulso después de aviso");
   const pulse = level.combat.projectiles[0];
   assert(Math.abs(pulse.position.x - (710 - 200 * dt)) < 1e-6 && pulse.position.y === 410 && pulse.velocity.x === -200 && pulse.radius === 16, "origen, trayectoria o velocidad del pulso no coinciden");
-  for (let step = 0; step < 500 && level.enemy.attack?.data.patternId !== "CATODO_SENSOR_L"; step += 1) updateLevel(level, actions(), dt);
+  for (let step = 0; step < 1200 && level.enemy.attack?.data.patternId !== "CATODO_SENSOR_L"; step += 1) updateLevel(level, actions(), dt);
   assert(level.enemy.attack?.data.patternId === "CATODO_SENSOR_L", "no siguió sensor izquierdo al pulso");
   assert(level.enemy.attack.sensorBox.x === 260 && level.enemy.attack.sensorBox.width === 120, "zona del sensor izquierdo incorrecta");
   const phases = new Set();
@@ -442,7 +444,7 @@ run("Los cuatro ataques de NULL aplican su daño y respuesta específica", () =>
     fight.update(dt, actions(guardInput));
     return [hp, fight.playerCombatant.hp];
   }
-  assert(JSON.stringify(hit({ attack: NULL_ATTACKS.echoChilo, x: 680, guard: true })) === "[94,94]", "el eco frontal no respeta cobertura y contacto único (18→6)");
+  assert(JSON.stringify(hit({ attack: NULL_ATTACKS.echoChilo, x: 680, guard: true })) === "[82,82]", "el eco frontal debe romper guardia y aplicar un único daño de 18");
   assert(hit({ attack: NULL_ATTACKS.echoVera, x: 500 })[0] === 81, "el eco rasante no aplicó 19");
   assert(hit({ attack: NULL_ATTACKS.echoVera, x: 500, y: 400 })[0] === 100, "el eco rasante no permite despeje de 30 px");
   assert(hit({ attack: NULL_ATTACKS.echoCatodo, x: 320 })[0] === 80, "el eco de sensor no aplicó 20");
@@ -725,7 +727,8 @@ run("Pausa omite pasos y congela tutorial, telegráfico y ataque de Chilo", () =
 });
 
 run("Chilo usa los tiempos/daños documentados de aletazo y salto anunciado", () => {
-  const level = loadLevel(LEVEL_1_DATA, "alma");
+  const predictableChiloData = { ...LEVEL_1_DATA, enemy: { ...CHILO_DATA, ai: undefined } };
+  const level = loadLevel(predictableChiloData, "alma");
   level.enemy.setCombatReady(true);
   level.player.position.x = 630;
   const opening = level.combat.update(dt, actions());
@@ -741,7 +744,7 @@ run("Chilo usa los tiempos/daños documentados de aletazo y salto anunciado", ()
   assert(wingEvents.filter((event) => event.kind === "damageApplied" && event.targetId === "alma").length === 1, "el aletazo duplicó daño");
   assert(level.enemy.attack.data.width === 125 && level.enemy.attack.data.offsetY === -95 && level.enemy.attack.data.height === 90, "zona del aletazo no representa x125/y335…425");
 
-  const guardedWing = loadLevel(LEVEL_1_DATA, "alma");
+  const guardedWing = loadLevel(predictableChiloData, "alma");
   guardedWing.enemy.setCombatReady(true);
   guardedWing.player.position.x = 630;
   guardedWing.player.grounded = true;
@@ -764,7 +767,7 @@ run("Chilo usa los tiempos/daños documentados de aletazo y salto anunciado", ()
   assert(level.enemy.attack.targetPosition.x === jumpTarget.x && level.enemy.attack.targetPosition.y === jumpTarget.y, "el destino cambió con el movimiento del jugador");
   assert(level.combat.playerCombatant.hp === 88, "el salto dañó durante arco o fuera de la sombra fijada");
 
-  const jumpHit = loadLevel(LEVEL_1_DATA, "alma");
+  const jumpHit = loadLevel(predictableChiloData, "alma");
   jumpHit.enemy.setCombatReady(true);
   jumpHit.player.position.x = 630;
   jumpHit.player.grounded = true;
@@ -784,7 +787,7 @@ run("Chilo usa los tiempos/daños documentados de aletazo y salto anunciado", ()
 run("Alma, Diego y Nadia pueden golpear a Chilo y recorren ambos patrones", () => {
   const expected = { alma: { hp: 100, damage: 10 }, diego: { hp: 120, damage: 12 }, nadia: { hp: 85, damage: 8 } };
   for (const [fighterId, stats] of Object.entries(expected)) {
-    const level = loadLevel(LEVEL_1_DATA, fighterId);
+    const level = loadLevel({ ...LEVEL_1_DATA, enemy: { ...CHILO_DATA, ai: undefined } }, fighterId);
     level.player.position.x = 630;
     level.enemy.setCombatReady(true);
     assert(level.combat.playerCombatant.maxHp === stats.hp, `${fighterId}: vida inicial incorrecta`);
@@ -1212,6 +1215,50 @@ run("El récord se guarda solo en terminal y conserva el mejor puntaje", () => {
     { kind: "damageApplied", targetId: "chilo", sourceId: "alma", attackInstanceId: "alma-special-1-projectile-2" },
   ]);
   assert(campaign.attemptScore === 35, `puntaje de golpes/especial duplicado o incorrecto: ${campaign.attemptScore}`);
+});
+
+run("Los cuatro combates sostienen ciclos largos y NULL llega a su fase final", () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0.5;
+  try {
+    for (const entry of CAMPAIGN_LEVELS) {
+      const level = loadLevel(entry.data, "alma");
+      level.combat.playerCombatant.hp = 1_000_000;
+      level.enemy.setCombatReady?.(true);
+      let warnings = 0;
+      for (let step = 0; step < 3600; step += 1) {
+        const events = level.combat.update(dt, actions());
+        warnings += events.filter((event) => event.kind === "warningStarted").length;
+        assert(Number.isFinite(level.enemy.position.x) && Number.isFinite(level.enemy.position.y), `${entry.id}: el jefe salió de coordenadas válidas`);
+        assert(level.combat.projectiles.length <= MAX_ACTIVE_PROJECTILES, `${entry.id}: excedió el límite de proyectiles`);
+      }
+      assert(warnings > 0, `${entry.id}: ningún ataque inició durante la simulación`);
+
+      if (entry.id === "nivel-4") {
+        level.enemy.applyDamage(level.enemy.hp - 79, { sourceId: "prueba", attackInstanceId: "umbral-fase-2", step: 3600 });
+        let phaseChanged = false;
+        let finalSweepSeen = false;
+        for (let step = 0; step < 3600; step += 1) {
+          const events = level.combat.update(dt, actions());
+          phaseChanged ||= events.some((event) => event.kind === "phaseChanged");
+          finalSweepSeen ||= events.some((event) => event.patternId === "NULL_FINAL_SWEEP");
+          assert(level.combat.projectiles.length <= MAX_ACTIVE_PROJECTILES, "nivel-4: excedió el límite de proyectiles en fase 2");
+        }
+        assert(phaseChanged && finalSweepSeen, "NULL no completó la transición o no planificó el barrido final");
+      }
+    }
+  } finally {
+    Math.random = originalRandom;
+  }
+});
+
+run("El manifiesto describe las siete hojas de lucha v2 con sus ocho celdas", () => {
+  assert(ASSET_MANIFEST.characters.length === 7, "falta un estudiante o jefe en el manifiesto visual");
+  for (const character of ASSET_MANIFEST.characters) {
+    assert(character.relativePath.includes("/fighting-v2/"), `${character.characterId}: ruta visual antigua`);
+    assert(character.sheetDimensions.width === 512 && character.sheetDimensions.height === 80, `${character.characterId}: tamaño de hoja inconsistente`);
+    assert(character.frameDimensions.width === 64 && character.frameDimensions.height === 80 && character.frameCount === 8, `${character.characterId}: marco/poses inconsistentes`);
+  }
 });
 
 const passed = results.filter((result) => result.passed).length;

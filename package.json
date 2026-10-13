@@ -1,0 +1,10 @@
+{
+  "name": "chilos-fighters",
+  "version": "1.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node tools/dev-server.cjs",
+    "test:specials": "node tests/player-specials.test.mjs"
+  }
+}

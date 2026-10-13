@@ -4,7 +4,7 @@
 
 ## Recursos visuales y estado comprobado
 
-Se inventariaron **17 archivos** bajo `img/`: cuatro referencias del estacionamiento (1280×960 JPEG), cuatro de la cancha (PNG, 1913–1917×1066–1097), tres del laboratorio (PNG, 1917×1095–1098), tres de la biblioteca (PNG, 1913–1917×1091–1097), una foto de Chilo (1080×1551 JPEG), un concepto PNG de Vera (1199×1312) y uno de CÁTODO-3 (1222×1287). El icono NULL aparece dentro de capturas y no existe como sprite independiente. Los tamaños de archivo van aproximadamente de 0,17 a 3,03 MiB. Metadatos describen archivos actuales, no autorización de publicación.
+Se inventariaron **17 archivos** bajo `referencias-visuales/originales/`: cuatro referencias del estacionamiento (1280×960 JPEG), cuatro de la cancha (PNG, 1913–1917×1066–1097), tres del laboratorio (PNG, 1917×1095–1098), tres de la biblioteca (PNG, 1913–1917×1091–1097), una foto de Chilo (1080×1551 JPEG), un concepto PNG de Vera (1199×1312) y uno de CÁTODO-3 (1222×1287). El icono NULL aparece dentro de capturas y no existe como sprite independiente. Los tamaños de archivo van aproximadamente de 0,17 a 3,03 MiB. Metadatos describen archivos actuales, no autorización de publicación.
 
 | Entregable de producción | Especificación inicial | Estado y condición |
 |---|---|---|

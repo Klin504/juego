@@ -2,7 +2,7 @@
 
 **Versión:** 0.3 · **Estado:** diseño narrativo y especificaciones de arenas, combate, Archivo y recursos · **Fuentes:** `Requisitos.md`, indicaciones del creador y referencias visuales recibidas.
 
-> **Convención:** **Confirmado** significa indicado por el creador o visible en sus imágenes. **Diseño original** identifica decisiones creativas elaboradas para completar el juego. El canon narrativo completo está en [LORE.md](LORE.md), los planos y ataques en [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md), el secreto en [EASTER_EGG.md](EASTER_EGG.md), las pantallas y recursos en [PANTALLAS_Y_RECURSOS.md](PANTALLAS_Y_RECURSOS.md), el inventario visual en [REFERENCIAS_VISUALES.md](REFERENCIAS_VISUALES.md) y la secuencia de trabajo en [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md).
+> **Convención:** **Confirmado** significa indicado por el creador o visible en sus imágenes. **Diseño original** identifica decisiones creativas elaboradas para completar el juego. El canon narrativo completo está en [LORE.md](LORE.md), los planos y ataques en [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md), la IA y el balance inicial de jefes en [IA_JEFES_Y_BALANCE.md](IA_JEFES_Y_BALANCE.md), el secreto en [EASTER_EGG.md](EASTER_EGG.md), las pantallas y recursos en [PANTALLAS_Y_RECURSOS.md](PANTALLAS_Y_RECURSOS.md), el inventario visual en [REFERENCIAS_VISUALES.md](REFERENCIAS_VISUALES.md) y la secuencia de trabajo en [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md).
 
 ## 1. Visión
 
@@ -30,7 +30,7 @@
 
 Durante una muestra de proyectos, **NULL**, asistente digital del recorrido virtual del campus, recibe una instrucción defectuosa: “certificar a los mejores estudiantes mediante cuatro desafíos”. Interpreta la frase literalmente y bloquea el acceso digital entre las áreas de prueba. Los combates se realizan como duelos de entrenamiento con efectos no letales. Su error es imponer la competición; no es una IA malvada ni controla la mente de nadie.
 
-**Chilo**, la mascota visible en `img/jefe 1/`, se ofrece a probar al protagonista en el estacionamiento. En la cancha, **Vera «La Capitana» Pineda** acepta voluntariamente un segundo duelo para liberar la ruta al laboratorio. La rutina de NULL registra una marca tras cada victoria; ni Chilo ni Vera pueden concederla sin combate. Allí **CÁTODO-3**, un autómata de demostración científica, ejecuta la orden de NULL y protege el registro del fallo. La copia de recuperación se conserva en una terminal de la biblioteca: ese espacio es la arena final, donde NULL proyecta su avatar. Tras la tercera marca se accede a la biblioteca; al vencer el avatar y registrar la cuarta, los tres estudiantes pueden corregir la regla defectuosa.
+**Chilo**, la mascota visible en `referencias-visuales/originales/jefe 1/`, se ofrece a probar al protagonista en el estacionamiento. En la cancha, **Vera «La Capitana» Pineda** acepta voluntariamente un segundo duelo para liberar la ruta al laboratorio. La rutina de NULL registra una marca tras cada victoria; ni Chilo ni Vera pueden concederla sin combate. Allí **CÁTODO-3**, un autómata de demostración científica, ejecuta la orden de NULL y protege el registro del fallo. La copia de recuperación se conserva en una terminal de la biblioteca: ese espacio es la arena final, donde NULL proyecta su avatar. Tras la tercera marca se accede a la biblioteca; al vencer el avatar y registrar la cuarta, los tres estudiantes pueden corregir la regla defectuosa.
 
 Los tres protagonistas siempre participan en la historia, aunque sólo uno sea controlado en cada campaña. **Alma** repara la instrucción, **Nadia** interpreta las pistas y **Diego** protege al equipo y a quienes están cerca. El final funciona con cualquiera de los tres como luchador elegido.
 
@@ -61,9 +61,9 @@ Los tres protagonistas siempre participan en la historia, aunque sólo uno sea c
 
 | Personaje | Vida máxima | Velocidad relativa | Daño de R | Enfriamiento especial |
 |---|---:|---:|---:|---:|
-| Alma | 100 | 1.0 | 10 | 8 s |
-| Diego | 120 | 0.85 | 12 | 10 s |
-| Nadia | 85 | 1.2 | 8 | 7 s |
+| Alma | 100 | 1.0 | 14 | 8 s |
+| Diego | 120 | 0.85 | 16 | 10 s |
+| Nadia | 85 | 1.2 | 12 | 7 s |
 
 Estos valores son puntos de partida para pruebas, no estadísticas finales. Todos deben poder terminar la campaña.
 
@@ -95,7 +95,7 @@ Las fotos y capturas disponibles se muestran como **referencias** en la página 
 | **Vera «La Capitana» Pineda** | Atleta con uniforme azul marino y turquesa, balón, postura segura; competitiva y justa. | **Bote de retorno:** balón que rebota una vez. **Carrera de línea:** avance recto anunciado sobre la cancha. | Tiene la autorización de acceso al laboratorio y quiere comprobar que el grupo puede pasar sin empeorar la emergencia. | Reconoce al equipo y le presta su pase; apoya desde las gradas. |
 | **CÁTODO-3** | Autómata blanco y azul con visor y bobinas cian; curioso, obediente, no cruel. | **Pulso de luz:** esfera lenta. **Barrido de sensores:** franja luminosa en el suelo antes de activarse. | NULL cambió su rutina de exhibición para impedir que alguien leyera el registro del sistema. | Pasa a modo seguro y entrega el registro sin ser destruido. |
 
-Los retratos conceptuales originales están guardados en `img/jefe 2/vera-la-capitana.png` y `img/jefe 3/catodo-3.png`. Son **concept art**, no sprites animados finales ni imágenes de personas reales.
+Los retratos conceptuales originales están guardados en `referencias-visuales/originales/jefe 2/vera-la-capitana.png` y `referencias-visuales/originales/jefe 3/catodo-3.png`. Son **concept art**, no sprites animados finales ni imágenes de personas reales.
 
 ## 5. Controles y reglas del combate
 
@@ -150,7 +150,7 @@ La puntuación se acumula durante la campaña. Al repetir un nivel tras perder, 
 
 Los tiempos, vidas, daño y enfriamientos son parámetros de prueba. Si el tiempo llega a cero, el duelo se pierde y se consume un intento. Los límites deberán ajustarse después de probar el combate con los tres personajes.
 
-El plano funcional de cada arena, la secuencia y los valores iniciales de cada ataque se definen en [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md).
+El plano funcional de cada arena y los valores iniciales de cada ataque se definen en [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md). La lógica de movimiento y decisión adaptativa de los jefes está en [IA_JEFES_Y_BALANCE.md](IA_JEFES_Y_BALANCE.md).
 
 ## 6. Pantallas e interfaz
 
@@ -194,26 +194,26 @@ Las cuatro fichas, sus folios, los mensajes de la terminal y los casos especiale
 - **Efectos visuales:** destello breve de impacto, partículas limitadas, sacudida suave opcional y aviso de área peligrosa.
 - **Sonido:** música propia o con licencia apta para el proyecto, efectos para menú, golpe, habilidad, daño y victoria. El audio se activa después de una interacción del usuario.
 
-### Recursos visuales disponibles y faltantes
+### Recursos visuales descritos durante la fase 1 (registro histórico)
 
 | Recurso | Estado |
 |---|---|
-| Escenarios de niveles 1–4 | **Recibidos** en `img/nivel 1/` a `img/nivel 4/`. |
-| Chilo | **Recibido** en `img/jefe 1/`. El nombre «CHILO» se lee en su camisa. |
-| Vera y CÁTODO-3 | **Concept art creado** en `img/jefe 2/` y `img/jefe 3/`; faltan sprites de animación. |
+| Escenarios de niveles 1–4 | **Recibidos** en `referencias-visuales/originales/nivel 1/` a `referencias-visuales/originales/nivel 4/`. |
+| Chilo | **Recibido** en `referencias-visuales/originales/jefe 1/`. El nombre «CHILO» se lee en su camisa. |
+| Vera y CÁTODO-3 | **Concept art creado** en `referencias-visuales/originales/jefe 2/` y `referencias-visuales/originales/jefe 3/`; faltan sprites de animación. |
 | NULL | Hay un icono de «NULL» dentro de varias capturas; falta un sprite de combate original. |
 | Alma, Diego y Nadia | Faltan referencias o sprites de los tres protagonistas. |
 | Fondos finales | Deben ser pixel art a partir de las fotos y capturas de referencia; faltan los cuatro fondos y se omite la interfaz incrustada del recorrido virtual. |
 
-Para cada imagen se registra origen, función y detalles observados en [REFERENCIAS_VISUALES.md](REFERENCIAS_VISUALES.md). Las fotografías y capturas son útiles para dirección de arte; los conceptos de Vera y CÁTODO-3 se generaron especialmente para este proyecto.
+Esta tabla refleja el inventario previo al desarrollo, no el estado actual. Las referencias originales y los recursos pixel art que usa el juego están inventariados por separado en [REFERENCIAS_VISUALES.md](REFERENCIAS_VISUALES.md). La arquitectura actual está en [ARQUITECTURA_DEL_CODIGO.md](ARQUITECTURA_DEL_CODIGO.md).
 
 El requisito de fondos pixel art, junto con las propuestas de siluetas, pantallas, sonido y señales accesibles, se detalla en [PANTALLAS_Y_RECURSOS.md](PANTALLAS_Y_RECURSOS.md).
 
 ## 8. Diseño técnico para HTML, CSS y JavaScript
 
-### Arquitectura propuesta
+### Arquitectura propuesta en fase 1 (superada por la implementación actual)
 
-El [contrato de arquitectura de la fase 1.6](FASE_1_6_ARQUITECTURA.md) especializa el mapa orientativo siguiente: `levels.js` contiene datos de arenas y patrones; `campaign.js` será dueño de la progresión, los intentos y los puntos. También separa planificador de ataques, física, render y almacenamiento para conservar una fuente de verdad por regla.
+La arquitectura propuesta se conserva como registro de diseño. La implementación actual está documentada en [ARQUITECTURA_DEL_CODIGO.md](ARQUITECTURA_DEL_CODIGO.md). El [contrato de fase 1.6](FASE_1_6_ARQUITECTURA.md) especializa el mapa orientativo siguiente: `levels.js` contiene datos de arenas y patrones; `campaign.js` será dueño de la progresión, los intentos y los puntos. También separa planificador de ataques, física, render y almacenamiento para conservar una fuente de verdad por regla.
 
 ```text
 index.html                 menús, canvas, HUD y cuadros de diálogo
@@ -283,6 +283,7 @@ Los documentos base de **Chilos Fighters** se complementan con contratos por sub
 | Documento | Detalles definidos como propuesta |
 |---|---|
 | [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md) | Plano funcional de cada arena, valores de las habilidades, ataques de los cuatro jefes y respuestas esperadas. |
+| [IA_JEFES_Y_BALANCE.md](IA_JEFES_Y_BALANCE.md) | Movimiento, esquiva, selección variable de ataques, combos y puntos de ajuste de balance de los jefes. |
 | [EASTER_EGG.md](EASTER_EGG.md) | Cuatro fichas, folios, solución, mensajes de terminal, efecto exacto del Visor y casos de uso. |
 | [PANTALLAS_Y_RECURSOS.md](PANTALLAS_Y_RECURSOS.md) | Flujo y texto de pantallas, dirección visual, necesidades de sprites y fondos, sonido, accesibilidad y revisión futura. |
 | [FASE_1_1_REQUISITOS_Y_CANON.md](FASE_1_1_REQUISITOS_Y_CANON.md) | Requisitos confirmados y decisiones de diseño trazables al canon. |
@@ -296,4 +297,3 @@ Los documentos base de **Chilos Fighters** se complementan con contratos por sub
 | [PLAN_DESARROLLO.md](PLAN_DESARROLLO.md) | Tres fases, 24 subfases actuales, agentes, código limpio, entregables y puertas. |
 
 **Pendiente de producción:** crear los recursos visuales y sonoros finales, registrar sus permisos de uso y ajustar números de daño, tiempos y dificultad cuando exista una versión jugable. Los valores de estas especificaciones son puntos de partida, no resultados de pruebas.
-

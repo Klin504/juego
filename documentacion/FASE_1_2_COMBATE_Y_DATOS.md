@@ -24,7 +24,7 @@ Coordenadas lógicas de **960 × 540 px**, origen arriba a la izquierda, `x` hac
 | `LevelConfig` | Lugar, jefe, vida máxima, límite de tiempo, secuencia de patrones, geometría de arena y recursos visuales. |
 | `CampaignState` | `selectedFighterId`, `levelIndex`, marcas obtenidas, `attemptsRemaining`, `campaignScore`, `attemptScore`, estado terminal. |
 
-Valores iniciales: vida de Alma/Diego/Nadia **100/120/85**, velocidades **240/204/288 px/s** y daño de R **10/12/8**; jefes **80/110/130/160** de vida; tiempos límite **150/210/270/360 s**. El golpe R alcanza **100 px desde el borde delantero del cuerpo**, está activo **0,12 s** y admite otro inicio tras **0,35 s**. Enfriamientos especiales **8/10/7 s**. Todos los valores de patrones y especiales restantes se toman de [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md), con una sola tabla configurada para combate, HUD y Visor.
+Valores iniciales del contrato de fase 1: vida de Alma/Diego/Nadia **100/120/85**, velocidades **240/204/288 px/s** y daño de R **10/12/8**; jefes **80/110/130/160** de vida; tiempos límite **150/210/270/360 s**. El golpe R alcanzaba **100 px desde el borde delantero del cuerpo**, estaba activo **0,12 s** y admitía otro inicio tras **0,35 s**. El balance implementado actualmente usa daño de R **14/16/12**; los tiempos y valores vigentes están en `src/combat/combat-config.js` y [ARENAS_Y_COMBATE.md](ARENAS_Y_COMBATE.md), con una sola tabla para combate y HUD.
 
 ## Movimiento, volúmenes y ataque
 
