@@ -19,6 +19,14 @@ const ENEMY_FACTORIES = Object.freeze({
   null: (data) => new NullBoss(data),
 });
 
+/** Mantiene al estudiante y al jefe orientados uno hacia el otro durante el duelo. */
+function faceCombatants(player, enemy) {
+  const horizontalDirection = Math.sign(enemy.position.x - player.position.x);
+  if (horizontalDirection === 0) return;
+  player.facing = horizontalDirection;
+  enemy.facing = -horizontalDirection;
+}
+
 /** Construye las entidades y los sistemas de un intento a partir de datos. */
 export function loadLevel(levelData, fighterId, options = {}) {
   const enemyFactory = ENEMY_FACTORIES[levelData.enemyType] ?? ((data) => new EnemyCombatant(data));
@@ -51,9 +59,11 @@ export function updateLevel(level, actions, dt) {
   // La caja del jefe cambia al moverse: actualizamos su obstáculo antes de resolver física.
   level.physicsSolids[level.physicsSolids.length - 1] = level.enemy.bodyBox;
   level.physics.update(level.player, actions, dt, level.physicsSolids);
+  faceCombatants(level.player, level.enemy);
   level.tutorial.update(actions, level.player, level.enemy);
   if (level.tutorial.completed) level.enemy.setCombatReady?.(true);
   const events = level.combat.update(dt, actions);
+  faceCombatants(level.player, level.enemy);
   level.lastCombatEvents = events;
   if (level.tutorial.completed) level.elapsedSeconds += dt;
   if (level.elapsedSeconds >= level.data.timeLimitSec && level.combat.outcome === COMBAT_OUTCOME.IN_PROGRESS) {
